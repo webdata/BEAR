@@ -1,0 +1,39 @@
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+version='1.0'
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+jar{
+manifest {
+        attributes 'Implementation-Title': 'Gradle Jar File Example',  
+        	'Implementation-Version': version,
+        	'Main-Class': 'RIOTParser'
+    }
+}
+task wrapper(type: Wrapper) {
+    gradleVersion = '1.11'
+    }
+
+repositories {
+    mavenCentral()
+}
+dependencies {
+	//compile 'org.openrdf.sesame:sesame-rio-api:2.8.1' 
+	//compile 'org.openrdf.sesame:sesame-rio-ntriples:2.8.1'  
+	//compile 'org.openrdf.sesame:sesame-rio-nquads:2.8.1'
+	//compile 'org.openrdf.sesame:sesame-rio-turtle:2.8.1'
+	compile 'org.apache.jena:jena-tdb:1.1.2'
+	compile 'org.apache.jena:jena-arq:2.13.0'
+	compile 'commons-cli:commons-cli:1.2'
+	compile 'org.apache.commons:commons-math3:3.5'
+}
+
+//create a single Jar with all dependencies
+task fatJar(type: Jar) {
+	baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
