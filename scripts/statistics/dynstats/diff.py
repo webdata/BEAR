@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 from itertools import imap, izip, count, repeat, tee
 import heapq
@@ -8,6 +9,11 @@ from os import listdir
 from os.path import isfile, join
 import sys
 
+import matplotlib
+
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+import pandas as pd
 from collections import defaultdict
 
 
@@ -71,31 +77,51 @@ def full_outer_join(*iterables, **kwargs):
         yield (key, output)
 
 
-def prepareOutDir(outDir, len_files):
+def prepareOutDir(args, prefix):
+
+    outDir = args.out
     print "Output folder {}".format(outDir)
+
     if not os.path.exists(outDir):
         os.makedirs(outDir)
-    data={'w_static':open(os.path.join(outDir,'static.nt'),'w'),
-          'w_added':[],
-          'w_deleted': []
-          }
 
-    for i in range(1, len_files):
-        data['w_added'].append(open(os.path.join(outDir,"added_{}-{}.nt".format(i, i + 1)),'w'))
-        data['w_deleted'].append(open(os.path.join(outDir, "added_{}-{}.nt".format(i, i + 1)), 'w'))
+
+    data = {'w_static': open(os.path.join(outDir, '{}-static.nt'.format(prefix)), 'w'),
+            'w_added': [],
+            'w_deleted': []
+            }
+
+    files = [open(join(args.input, f), "r") for f in sorted(listdir(args.input)) if
+             isfile(join(args.input, f)) and f.startswith(prefix)]
+    data['files']=files
+    mappingFile=os.path.join(args.out, "mapping.csv")
+    print "writting snapshot id to file mapping to {}".format(mappingFile)
+    snapshotMapping = {i: join(args.input, f) for i, f in enumerate(sorted(listdir(args.input))) if
+                       isfile(join(args.input, f)) and f.startswith(prefix)}
+
+    with open(mappingFile,'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(['snapshot', 'file'])
+        for k in sorted(snapshotMapping.keys()):
+            writer.writerow([k, snapshotMapping[k]])
+
+
+    for i in range(1, len(files)):
+        data['w_added'].append(open(os.path.join(outDir,"{}-added_{}-{}.nt".format(prefix,i, i + 1)),'w'))
+        data['w_deleted'].append(open(os.path.join(outDir, "{}-deleted_{}-{}.nt".format(prefix,i, i + 1)), 'w'))
 
     return data
 
 
-def computeFileDiffs(files,outConfig):
-
-    print "-*"*20
+def computeFileDiffs(outConfig, prefix):
+    files=outConfig['files']
+    print "-*"*10,'Processing {}'.format(prefix),"*-"*10
     c=0
     stats={'static':0,'total':0, 'snapshots':len(files)
-           ,'stmts':defaultdict(int)
-           , 'stmts_union': defaultdict(int)
-           , 'stmts_del': defaultdict(int)
-           , 'stmts_added': defaultdict(int)
+           ,'count':defaultdict(int)
+           , 'union': defaultdict(int)
+           , 'del': defaultdict(int)
+           , 'added': defaultdict(int)
            }
 
     start= time.time()
@@ -108,7 +134,7 @@ def computeFileDiffs(files,outConfig):
         #COUNT statements per snapshot
         exists=[i for i,k in enumerate(line[1]) if k is not None]
         for i in exists:
-            stats['stmts'][i]+=1
+            stats['count'][i]+=1
         stats['total']+=1 if len(exists)>0 else 0
 
         #debug
@@ -126,18 +152,18 @@ def computeFileDiffs(files,outConfig):
                     if i>0 and line[1][ i-1 ] is not None:
                         outConfig['w_deleted'][i-1].write(stmt)
                         #print "write deleted stmt in {} to {}".format(i, str(outConfig['w_deleted'][i-1]))
-                        stats['stmts_del'][i]+=1
+                        stats['del'][i]+=1
 
                     # this stmts was added in i if it exists in i+1
                     if i<len(line[1])-1 and line[1][ i+1 ] is not None:
                         outConfig['w_added'][ i ].write(stmt)
                         #print "write added stmt in {} to {}".format(i+1,str(outConfig['w_added'][i]))
-                        stats['stmts_added'][ i+1 ] += 1
+                        stats['added'][ i+1 ] += 1
         #print stmt, line[1]
         for i in range(0, len(line[1])):
             if i < len(line[1]) - 1 and any(line[1][i:i + 2]):
                 #print i, line[1][i:i + 2], any(line[1][i:i + 2])
-                stats['stmts_union'][i] += 1
+                stats['union'][i] += 1
 
         c+=1
         if c%10000==0:
@@ -147,7 +173,116 @@ def computeFileDiffs(files,outConfig):
     print "-*" * 20
     return stats
 
-def computeStats(stats):
+def dataPlot(data, outdir):
+
+    plotDir=os.path.join(outdir,'plots')
+    if not os.path.exists(plotDir):
+        os.makedirs(plotDir)
+
+    def stmtPlot():
+        x = [i for i in range(0, len(data['count']))]
+
+        #Number of statement plot
+        # Create a figure of given size
+        fig = plt.figure(figsize=(16, 12))
+        # Add a subplot
+        ax = fig.add_subplot(111)
+        # Remove the plot frame lines. They are unnecessary chartjunk.
+        ax.spines["top"].set_visible(False)
+        #ax.spines["bottom"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        #ax.spines["left"].set_visible(False)
+
+        # Ensure that the axis ticks only show up on the bottom and left of the plot.
+        # Ticks on the right and top of the plot are generally unnecessary chartjunk.
+        ax.get_xaxis().tick_bottom()
+        ax.get_yaxis().tick_left()
+
+        locs, labels = plt.yticks()
+        plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+        #plt.yticks(locs, map(lambda x: "%.1f" % x, locs * 1e9))
+        #plt.text(0.0, 1.01, '1e-9', fontsize=10, transform=plt.gca().transAxes)
+
+        #plt.yticks(range(0, max(data['count']), 10), fontsize=14)
+        plt.xticks(fontsize=14)
+        import numpy as np
+        plt.xticks(np.arange(0, len(data['count']) + 1, 1.0))
+
+
+        plt.ylabel('#stmts')
+        plt.xlabel('versions')
+        #plt.plot(radius, square, marker='o', linestyle='--', color='r', label='Square')
+
+        plt.plot(x, data['count'], label='IC', marker='o')
+        plt.plot(x, data['diffs'], label='diffs', marker='o')
+        plt.plot(x, data['added'], label='added', marker='o')
+        plt.plot(x, data['deleted'], label='deleted', marker='o')
+
+        # Place a legend to the right of this smaller subplot.
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+        fileName=os.path.join(plotDir,'statements.pdf')
+        plt.savefig(fileName, bbox_inches='tight')
+        print "plotted to {}".format(fileName)
+
+    stmtPlot()
+    plt.close()
+
+    def growthPlot():
+        x = [i for i in range(0, len(data['count']))]
+
+        # Number of statement plot
+        # Create a figure of given size
+        fig = plt.figure(figsize=(16, 12))
+        # Add a subplot
+        ax = fig.add_subplot(111)
+        # Remove the plot frame lines. They are unnecessary chartjunk.
+        ax.spines["top"].set_visible(False)
+        # ax.spines["bottom"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        # ax.spines["left"].set_visible(False)
+
+        # Ensure that the axis ticks only show up on the bottom and left of the plot.
+        # Ticks on the right and top of the plot are generally unnecessary chartjunk.
+        ax.get_xaxis().tick_bottom()
+        ax.get_yaxis().tick_left()
+
+        locs, labels = plt.yticks()
+        plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+        # plt.yticks(locs, map(lambda x: "%.1f" % x, locs * 1e9))
+        # plt.text(0.0, 1.01, '1e-9', fontsize=10, transform=plt.gca().transAxes)
+
+        # plt.yticks(range(0, max(data['count']), 10), fontsize=14)
+        plt.xticks(fontsize=14)
+        import numpy as np
+        plt.xticks(np.arange(0, len(data['count']) + 1, 1.0))
+
+        plt.ylabel('growth/dynamicity')
+        plt.xlabel('versions')
+        # plt.plot(radius, square, marker='o', linestyle='--', color='r', label='Square')
+
+        plt.plot(x, data['growth'], label='growth/decrease', marker='o')
+        plt.plot(x, data['addDyn'], label='add-dynamcity', marker='o')
+        plt.plot(x, data['delDyn'], label='del-adynamcity', marker='o')
+        plt.plot(x, data['dyn'], label='dynamcity', marker='o')
+
+        # Place a legend to the right of this smaller subplot.
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+        fileName = os.path.join(plotDir, 'growth.pdf')
+        plt.savefig(fileName, bbox_inches='tight')
+        print "plotted to {}".format(fileName)
+
+    growthPlot()
+
+    # Place a legend to the right of this smaller subplot.
+    #plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+
+
+
+
+def computeVocabStats(stats, outdir, prefix):
+
     for k, v in stats.items():
         if type(v) == defaultdict:
             print k, dict(v)
@@ -159,24 +294,149 @@ def computeStats(stats):
     print '_' * 20
 
 
-    print "VERSION CHANGE RATIO (added+dels)/union"
-    for i in range(0,stats['snapshots']-1):
-        added=stats['stmts_added'][i+1] if i+1 in stats['stmts_added'] and stats['stmts_added'][i+1] else 0
-        deleted = stats['stmts_del'][i + 1] if i+1 in stats['stmts_del'] and stats['stmts_del'][i+1] else 0
-        union=stats['stmts_union'][i]
-        vcr=(added+deleted)/(union*1.0)
-        print "  d{},{} = {} (({}+{})/{})".format(i+1,i+2,vcr,added,deleted,union)
-    print "VERSION DATA GROWTH"
-    for i in range(0, stats['snapshots']-1):
-        vi= stats['stmts'][i] if i in stats['stmts'] and stats['stmts'][i] else 0
-        vj= stats['stmts'][i+1] if i in stats['stmts'] and stats['stmts'][i+1] else 0
+    filename=os.path.join(outdir, "{}-vdyn.csv".format(prefix))
+    print "RDF vocabulary set dynamicity (added+dels)/union and insertion or deletions print to {}".format(filename)
+    with open (filename,'w') as f:
+        writer=csv.writer(f)
+        writer.writerow(["id",'label','vdyn', 'vdyn+','vdyn-','added', 'del', 'union'])
+        for i in range(0,stats['snapshots']-1):
+            added=stats['added'][i+1] if i+1 in stats['added'] and stats['added'][i+1] else 0
+            deleted = stats['del'][i + 1] if i+1 in stats['del'] and stats['del'][i+1] else 0
+            union=stats['union'][i]
+            vcr=(added+deleted)/(union*1.0)
+            vcrplus = (added) / (union * 1.0)
+            vcrminus = (deleted) / (union * 1.0)
+            print "  vdyn(+/-) ({},{},{}) = {} {} {} hmm(({}+{})/{})".format(prefix,i+1,i+2,vcr,vcrplus,vcrminus, added,deleted,union)
+            writer.writerow([i, 'vdyn({},{},{})'.format(prefix,i+1,i+2), vcr,vcrplus,vcrminus, added, deleted, union])
 
-        print "  growth({},{}) = {} ({}/{})".format(i + 1, i + 2, (vj/(vi*1.0)) if vi>0 else 0, vi,vj)
+
+    filename = os.path.join(outdir, "{}-vocab.csv".format(prefix))
+    print "Vocabulary count print to {}".format(filename)
+    with open (filename,'w') as f:
+        writer=csv.writer(f)
+        writer.writerow(["id",'label','distinct', 'added', 'deleted'])
+        for i in range(0, stats['snapshots']-1):
+            vi= stats['count'][i] if i in stats['count'] and stats['count'][i] else 0
+            added = stats['added'][i + 1] if i + 1 in stats['added'] and stats['added'][i + 1] else 0
+            deleted = stats['del'][i + 1] if i + 1 in stats['del'] and stats['del'][i + 1] else 0
+
+            print "  vocab({},{}), count: {}, added: {}, deleted {} ".format(prefix, i,vi,added,deleted)
+            writer.writerow([i, 'vocab({},{})'.format(prefix,i), vi,added,deleted])
+
+
+def computeDataStats(stats, outdir):
+    prefix='data'
+    for k, v in stats.items():
+        if type(v) == defaultdict:
+            print k, dict(v)
+        else:
+            print k, v
+
+    print '_'*20
+    print "Analysed {} snapshots".format(stats['snapshots'])
+    print '_' * 20
+
+
+    filename=os.path.join(outdir, "{}-version-change-ratio.csv".format(prefix))
+    print "VERSION CHANGE RATIO (added+dels)/union print to {}".format(filename)
+
+    with open (filename,'w') as f:
+        writer=csv.writer(f)
+        writer.writerow(["id",'label','ver-chng-ratio', 'added', 'del', 'union'])
+        for i in range(0,stats['snapshots']-1):
+            added=stats['added'][i+1] if i+1 in stats['added'] and stats['added'][i+1] else 0
+            deleted = stats['del'][i + 1] if i+1 in stats['del'] and stats['del'][i+1] else 0
+            union=stats['union'][i]
+            vcr=(added+deleted)/(union*1.0)
+            print "  d{},{} = {} (({}+{})/{})".format(i+1,i+2,vcr,added,deleted,union)
+            writer.writerow([i, 'd{},{}'.format(i+1,i+2), vcr, added, deleted, union])
+
+
+
+
+
+    filename = os.path.join(outdir, "{}-version-data-growth.csv".format(prefix))
+    print "VERSION DATA GROWTH print to {}".format(filename)
+    with open (filename,'w') as f:
+        writer=csv.writer(f)
+        writer.writerow(["id",'label','ver-data-growth, vi, vj'])
+        for i in range(0, stats['snapshots']-1):
+            vi= stats['count'][i] if i in stats['count'] and stats['count'][i] else 0
+            vj= stats['count'][i+1] if i in stats['count'] and stats['count'][i+1] else 0
+
+            print "  growth({},{}) = {} ({}/{})".format(i + 1, i + 2, (vj/(vi*1.0)) if vi>0 else 0, vi,vj)
+            writer.writerow([i, 'growth({},{})'.format(i+1,i+2), (vj/(vi*1.0)) if vi>0 else 0, vi,vj])
+
+
     print "STATIC CORE"
     print "  {} unique stmts in every snapshot".format(stats['static'])
     print "VERSION-OBLIVIOUS TRIPLES"
     print " {} unique stmts overall".format(stats['total'])
 
+    #prepare plot
+
+    plotData = {
+        'count': [],
+        'added': [],
+        'deleted': [],
+        'diffs': [],
+
+        'growth': [],
+        'addDyn': [],
+        'delDyn': [],
+        'dyn': []
+    }
+    plotDatas=[]
+    for i in range(0, stats['snapshots']):
+        count = stats['count'][i] if i in stats['count'] and stats['count'][i] else 0
+        added = stats['added'][i] if i in stats['added'] and stats['added'][i] else 0
+        deleted = stats['del'][i] if i in stats['del'] and stats['del'][i] else 0
+        union = stats['union'][i] if i in stats['union'] and stats['union'][i] else 0
+        vj = stats['count'][i - 1] if i - 1 in stats['count'] and stats['count'][i - 1] else 0
+
+        vcr = (added + deleted) / (union * 1.0) if union >0 else 0
+        vcadd = (added) / (union * 1.0) if union > 0 else 0
+        vcdel = ( deleted) / (union * 1.0) if union > 0 else 0
+        growth= count/(1.0*vj) if vj>0 else 0
+
+        plotData={'version':i}
+        plotData['count']=count
+        plotData['added']=added
+        plotData['deleted']=deleted
+        plotData['diffs']=added + deleted
+
+        plotData['growth']=growth
+        plotData['addDyn']=vcadd
+        plotData['delDyn']=vcdel
+        plotData['dyn']=vcr
+        plotDatas.append(plotData)
+
+    df=pd.DataFrame(plotDatas)
+    df.to_csv(os.path.join(outdir,"version-stats.csv"))
+
+
+def plotData(args, prefix):
+    if prefix == "data":
+        df=pd.DataFrame.from_csv(os.path.join(args.out,"version-stats.csv"))
+        dataPlot(df,args.out)
+
+    else:
+        #computeVocabStats(stats, args.out, prefix)
+        pass
+
+def processData(args, prefix):
+    inDir = args.input
+    print "Input folder {}".format(inDir)
+    print("Prepare process setup for {}".format(prefix))
+
+
+    outConfig = prepareOutDir(args, prefix)
+
+    stats = computeFileDiffs(outConfig,prefix)
+    if prefix == "data":
+        computeDataStats(stats, args.out)
+    else:
+        computeVocabStats(stats, args.out, prefix)
 
 
 def start(argv):
@@ -188,14 +448,12 @@ def start(argv):
 
     args = pa.parse_args(args=argv)
 
-    inDir=args.input
-    print "Input folder {}".format(inDir)
-    files = [open(join(inDir, f), "r") for f in listdir(inDir) if isfile(join(inDir, f))]
+    for prefix in ['data','subj','pred','obj']:
+        #processData(args,prefix)
+        plotData(args, prefix)
 
-    outConfig=prepareOutDir(args.out, len(files))
 
-    stats=computeFileDiffs(files,outConfig)
-    computeStats(stats)
+
 
 
 if __name__ == "__main__":
