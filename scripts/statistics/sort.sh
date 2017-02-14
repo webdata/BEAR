@@ -2,7 +2,6 @@
 
 # script input
 D_DATA=$1
-F_LOGS=$2
 
 ##########
 #data folder
@@ -22,42 +21,47 @@ alias rdf-subjects="awk '/^\s*[^#]/ { print \$1 }' | uniq"
 alias rdf-predicates="awk '/^\s*[^#]/ { print \$2 }' | uniq"
 alias rdf-objects="awk '/^\s*[^#]/ { ORS=\"\"; for (i=3;i<=NF-1;i++) print \$i \" \"; print \"\n\" }' | uniq"
 
-##########
-#LOGS
-##########
-echo "Genrating log directory $F_LOGS"
-mkdir -p $F_LOGS
-
-SB=$F_LOGS/sorting.bench
-echo "Sortign benchmarks are at $SB"
 
 cd $D_DATA
 for DATA in `ls  *.nt`
 do
+    if [[ $file =~ \.gz$ ]];
+    then
+        echo "gzip input"
+        cmdcut="zcat $D_DATA/$DATA"
+        suffix=""
+    else
+        cmdcut="cat $D_DATA/$DATA"
+        suffix=".gz"
+    fi
+
     rm -rf $D_DATA_SORTED/*$DATA*
     echo "Sorting $DATA to $D_DATA_SORTED"
 
     rm -rf $F_TMP/*
 
 	START=`date +%s`
-	cmdsort="sort -T $F_TMP -u   > $D_DATA_SORTED/data-$DATA"
-	cmdsubj="tee >(awk '/^\s*[^#]/ { print \$1 }' >$D_DATA_SORTED/subj-$DATA)"
-	cmdpred="tee >(awk '/^\s*[^#]/ { print \$2 }' >$D_DATA_SORTED/pred-$DATA)"
-	cmdobj="tee >(awk '/^\s*[^#]/ { ORS=\"\"; for (i=3;i<=NF-1;i++) print \$i \" \"; print \"\n\" }' >$D_DATA_SORTED/obj-$DATA)"
-	cmd="cat $D_DATA/$DATA |  $cmdsubj | $cmdpred| $cmdobj| $cmdsort"
+	cmdsort="sort -T $F_TMP -u |gzip -c > $D_DATA_SORTED/data-$DATA$suffix"
+	cmdsubj="tee >(awk '/^\s*[^#]/ { print \$1 }' |gzip -c > $D_DATA_SORTED/subj-$DATA$suffix)"
+	cmdpred="tee >(awk '/^\s*[^#]/ { print \$2 }' |gzip -c > $D_DATA_SORTED/pred-$DATA$suffix)"
+	cmdobj="tee >(awk '/^\s*[^#]/ { ORS=\"\"; for (i=3;i<=NF-1;i++) print \$i \" \"; print \"\n\" }' |gzip -c > $D_DATA_SORTED/obj-$DATA$suffix)"
+
+
+
+	cmd="$cmdcut |  $cmdsubj | $cmdpred| $cmdobj| $cmdsort"
 
     echo $cmd
 	eval $cmd
 	END=`date +%s`
 	ELAPSED=`echo "scale=8; ($END - $START) / 1000000000" | bc`
-	echo "$DATA $ELAPSED sec" >> $SB
+	echo "$DATA $ELAPSED sec"
 
     echo "Sorting vocab files for $DATA"
     for a in subj pred obj
     do
-        cmd="cat $D_DATA_SORTED/$a-$DATA | sort -T $F_TMP -u > $D_DATA_SORTED/$a-$DATA.sorted"
+        cmd="gunzip -c $D_DATA_SORTED/$a-$DATA$suffix | sort -T $F_TMP -u |gzip -c> $D_DATA_SORTED/$a-$DATA.sorted.gz"
         echo $cmd
         eval $cmd
-        mv $D_DATA_SORTED/$a-$DATA.sorted $D_DATA_SORTED/$a-$DATA
+        mv $D_DATA_SORTED/$a-$DATA.sorted.gz $D_DATA_SORTED/$a-$DATA$suffix
     done
 done
