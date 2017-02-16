@@ -86,6 +86,7 @@ def prepareOutDir(args, folders, prefix):
     dataOutDir = folders['extracted']
 
     data = {'w_static': gzip.open(os.path.join(dataOutDir, '{}-static.nt.gz'.format(prefix)), 'wb'),
+            'w_quads': gzip.open(os.path.join(dataOutDir, '{}.nq.gz'.format(prefix)), 'wb'),
             'w_added': [],
             'w_deleted': []
             }
@@ -117,6 +118,7 @@ def prepareOutDir(args, folders, prefix):
         data['w_added'].append(gzip.open(os.path.join(dataOutDir,"{}-added_{}-{}.nt.gz".format(prefix,i, i + 1)),'wb'))
         data['w_deleted'].append(gzip.open(os.path.join(dataOutDir, "{}-deleted_{}-{}.nt.gz".format(prefix,i, i + 1)), 'wb'))
 
+
     return data
 
 def computeFileDiffs(outConfig, prefix):
@@ -143,7 +145,15 @@ def computeFileDiffs(outConfig, prefix):
             stats['count'][i]+=1
         stats['total']+=1 if len(exists)>0 else 0
 
-        #debug
+
+        context="<http://example.org/v{}>".format("_".join(str(x) for x in exists))
+        quad = stmt[:-2] + context+" .\n"
+        outConfig['w_quads'].write(quad)
+        for i in exists:
+            quad='{} <http://www.w3.org/2002/07/owl#versionInfo> "{}"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.org/versions> .\n'.format(context,i)
+            outConfig['w_quads'].write(quad)
+
+            #debug
         #print line[1]
        # print exists
 
@@ -177,6 +187,15 @@ def computeFileDiffs(outConfig, prefix):
             print "processed {} lines in {} sec".format(c, end-start)
         #    break
     print "-*" * 20
+    ##close files
+    outConfig['w_static'].close()
+    outConfig['w_quads'].close()
+    for f in outConfig['w_added']:
+        f.close()
+    for f in outConfig['w_deleted']:
+        f.close()
+
+
     return stats
 
 def vocabPlot(data, plotDir, prefix):
@@ -500,6 +519,7 @@ def processData(args, folders,prefix):
     stats = computeFileDiffs(outConfig,prefix)
 
     if prefix == "data":
+
         computeDataStats(stats, folders['stats'])
     else:
         computeVocabStats(stats, folders['stats'], prefix)
