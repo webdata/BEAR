@@ -388,6 +388,6 @@ def start(argv):
 
 if __name__ == "__main__":
     #start()
-    args=['-i', '/Users/jumbrich/Data/bear/dados_gov_br/dcat/sorted', '-o' '/Users/jumbrich/Data/bear/dados_gov_br/dynstats']
-    start(args)
-    #start(sys.argv[1:])
+    #args=['-i', '/Users/jumbrich/Data/bear/dados_gov_br/dcat/sorted', '-o' '/Users/jumbrich/Data/bear/dados_gov_br/dynstats']
+    #start(args)
+    start(sys.argv[1:])
