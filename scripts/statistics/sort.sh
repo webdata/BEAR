@@ -6,11 +6,12 @@ D_DATA=$1
 ##########
 #data folder
 ##########
-F_TMP=$D_DATA/sort.tmp
+cd $D_DATA
+F_TMP=sort.tmp
 echo "Creating tmp sorting directory $F_TMP"
 mkdir -p $F_TMP
 
-D_DATA_SORTED=$D_DATA/sorted
+D_DATA_SORTED=sorted
 echo "Creating tmp directory $D_DATA_SORTED"
 mkdir -p $D_DATA_SORTED
 
@@ -22,16 +23,15 @@ alias rdf-predicates="awk '/^\s*[^#]/ { print \$2 }' | uniq"
 alias rdf-objects="awk '/^\s*[^#]/ { ORS=\"\"; for (i=3;i<=NF-1;i++) print \$i \" \"; print \"\n\" }' | uniq"
 
 
-cd $D_DATA
-for DATA in `ls  *.nt`
+for DATA in `ls *.nt*`
 do
-    if [[ $file =~ \.gz$ ]];
+    if [[ $DATA =~ \.gz$ ]];
     then
         echo "gzip input"
-        cmdcut="zcat $D_DATA/$DATA"
+        cmdcut="zcat $DATA"
         suffix=""
     else
-        cmdcut="cat $D_DATA/$DATA"
+        cmdcut="cat $DATA"
         suffix=".gz"
     fi
 

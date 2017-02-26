@@ -12,11 +12,7 @@ from collections import defaultdict
 import gzip
 
 
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
 import pandas as pd
-print plt.style.available
 
 def full_outer_join(*iterables, **kwargs):
     """
@@ -86,6 +82,8 @@ def prepareOutDir(args, folders, prefix):
     dataOutDir = folders['extracted']
 
     data = {'w_static': gzip.open(os.path.join(dataOutDir, '{}-static.nt.gz'.format(prefix)), 'wb'),
+            'w_quads': gzip.open(os.path.join(dataOutDir, '{}.nq.gz'.format(prefix)), 'wb'),
+            'w_quads_version': gzip.open(os.path.join(dataOutDir, '{}-version.nq.gz'.format(prefix)), 'wb'),
             'w_added': [],
             'w_deleted': []
             }
@@ -117,6 +115,7 @@ def prepareOutDir(args, folders, prefix):
         data['w_added'].append(gzip.open(os.path.join(dataOutDir,"{}-added_{}-{}.nt.gz".format(prefix,i, i + 1)),'wb'))
         data['w_deleted'].append(gzip.open(os.path.join(dataOutDir, "{}-deleted_{}-{}.nt.gz".format(prefix,i, i + 1)), 'wb'))
 
+
     return data
 
 def computeFileDiffs(outConfig, prefix):
@@ -131,6 +130,7 @@ def computeFileDiffs(outConfig, prefix):
            }
 
     start= time.time()
+    contextset=set([])
     for line in full_outer_join(*files):
         stmt=line[0][0]
         if stmt == '\n':
@@ -143,7 +143,17 @@ def computeFileDiffs(outConfig, prefix):
             stats['count'][i]+=1
         stats['total']+=1 if len(exists)>0 else 0
 
-        #debug
+
+        context="<http://example.org/v{}>".format("_".join(str(x) for x in exists))
+        quad = stmt[:-2] + context+" .\n"
+        outConfig['w_quads'].write(quad)
+        if context not in contextset:
+            contextset.add(context)
+            for i in exists:
+                quad='{} <http://www.w3.org/2002/07/owl#versionInfo> "{}"^^<http://www.w3.org/2001/XMLSchema#integer> <http://example.org/versions> .\n'.format(context,i)
+                outConfig['w_quads_version'].write(quad)
+
+            #debug
         #print line[1]
        # print exists
 
@@ -177,163 +187,19 @@ def computeFileDiffs(outConfig, prefix):
             print "processed {} lines in {} sec".format(c, end-start)
         #    break
     print "-*" * 20
+    ##close files
+    outConfig['w_static'].close()
+    outConfig['w_quads'].close()
+    outConfig['w_quads_version'].close()
+
+    for f in outConfig['w_added']:
+        f.close()
+    for f in outConfig['w_deleted']:
+        f.close()
+
+
     return stats
 
-def vocabPlot(data, plotDir, prefix):
-
-    def stmtPlot():
-        if prefix=='subj':
-            label='subjects'
-        elif prefix == 'pred':
-            label = 'predicates'
-        elif prefix == 'obj':
-            label = 'objects'
-        x = [i for i in range(0, len(data['count']))]
-
-        #Number of statement plot
-        # Create a figure of given size
-        fig = plt.figure(figsize=(16, 12))
-        # Add a subplot
-        ax = fig.add_subplot(111)
-        # Remove the plot frame lines. They are unnecessary chartjunk.
-        ax.spines["top"].set_visible(False)
-        #ax.spines["bottom"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        #ax.spines["left"].set_visible(False)
-
-        # Ensure that the axis ticks only show up on the bottom and left of the plot.
-        # Ticks on the right and top of the plot are generally unnecessary chartjunk.
-        ax.get_xaxis().tick_bottom()
-        ax.get_yaxis().tick_left()
-
-        locs, labels = plt.yticks()
-        plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-        #plt.yticks(locs, map(lambda x: "%.1f" % x, locs * 1e9))
-        #plt.text(0.0, 1.01, '1e-9', fontsize=10, transform=plt.gca().transAxes)
-
-        #plt.yticks(range(0, max(data['count']), 10), fontsize=14)
-        plt.xticks(fontsize=14)
-        import numpy as np
-        plt.xticks(np.arange(0, len(data['count']) + 1, 1.0))
-
-
-        plt.ylabel('Number of elements')
-        plt.xlabel('versions')
-        #plt.plot(radius, square, marker='o', linestyle='--', color='r', label='Square')
-
-        plt.plot(x, data['count'], label=label, marker='o')
-        plt.plot(x, data['added'], label=label+' added', marker='o')
-        plt.plot(x, data['deleted'], label=label+' deleted', marker='o')
-
-        # Place a legend to the right of this smaller subplot.
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-
-        fileName=os.path.join(plotDir,label+'-statements.pdf')
-        plt.savefig(fileName, bbox_inches='tight')
-        print "plotted to {}".format(fileName)
-
-    stmtPlot()
-
-def dataPlot(data, plotDir):
-
-    def stmtPlot():
-        x = [i for i in range(0, len(data['count']))]
-
-        #Number of statement plot
-        # Create a figure of given size
-        fig = plt.figure(figsize=(16, 12))
-        # Add a subplot
-        ax = fig.add_subplot(111)
-        # Remove the plot frame lines. They are unnecessary chartjunk.
-        ax.spines["top"].set_visible(False)
-        #ax.spines["bottom"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        #ax.spines["left"].set_visible(False)
-
-        # Ensure that the axis ticks only show up on the bottom and left of the plot.
-        # Ticks on the right and top of the plot are generally unnecessary chartjunk.
-        ax.get_xaxis().tick_bottom()
-        ax.get_yaxis().tick_left()
-
-        locs, labels = plt.yticks()
-        plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-        #plt.yticks(locs, map(lambda x: "%.1f" % x, locs * 1e9))
-        #plt.text(0.0, 1.01, '1e-9', fontsize=10, transform=plt.gca().transAxes)
-
-        #plt.yticks(range(0, max(data['count']), 10), fontsize=14)
-        plt.xticks(fontsize=14)
-        import numpy as np
-        plt.xticks(np.arange(0, len(data['count']) + 1, 1.0))
-
-
-        plt.ylabel('#stmts')
-        plt.xlabel('versions')
-        #plt.plot(radius, square, marker='o', linestyle='--', color='r', label='Square')
-
-        plt.plot(x, data['count'], label='IC', marker='o')
-        plt.plot(x, data['diffs'], label='diffs', marker='o')
-        plt.plot(x, data['added'], label='added', marker='o')
-        plt.plot(x, data['deleted'], label='deleted', marker='o')
-
-        # Place a legend to the right of this smaller subplot.
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-
-        fileName=os.path.join(plotDir,'statements.pdf')
-        plt.savefig(fileName, bbox_inches='tight')
-        print "plotted to {}".format(fileName)
-
-    stmtPlot()
-    plt.close()
-
-    def growthPlot():
-        x = [i for i in range(0, len(data['count']))]
-
-        # Number of statement plot
-        # Create a figure of given size
-        fig = plt.figure(figsize=(16, 12))
-        # Add a subplot
-        ax = fig.add_subplot(111)
-        # Remove the plot frame lines. They are unnecessary chartjunk.
-        ax.spines["top"].set_visible(False)
-        # ax.spines["bottom"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        # ax.spines["left"].set_visible(False)
-
-        # Ensure that the axis ticks only show up on the bottom and left of the plot.
-        # Ticks on the right and top of the plot are generally unnecessary chartjunk.
-        ax.get_xaxis().tick_bottom()
-        ax.get_yaxis().tick_left()
-
-        locs, labels = plt.yticks()
-        plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-        # plt.yticks(locs, map(lambda x: "%.1f" % x, locs * 1e9))
-        # plt.text(0.0, 1.01, '1e-9', fontsize=10, transform=plt.gca().transAxes)
-
-        # plt.yticks(range(0, max(data['count']), 10), fontsize=14)
-        plt.xticks(fontsize=14)
-        import numpy as np
-        plt.xticks(np.arange(0, len(data['count']) + 1, 1.0))
-
-        plt.ylabel('growth/dynamicity')
-        plt.xlabel('versions')
-        # plt.plot(radius, square, marker='o', linestyle='--', color='r', label='Square')
-
-        plt.plot(x, data['growth'], label='growth/decrease', marker='o')
-        plt.plot(x, data['addDyn'], label='add-dynamcity', marker='o')
-        plt.plot(x, data['delDyn'], label='del-adynamcity', marker='o')
-        plt.plot(x, data['dyn'], label='dynamcity', marker='o')
-
-        # Place a legend to the right of this smaller subplot.
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-
-        fileName = os.path.join(plotDir, 'growth.pdf')
-        plt.savefig(fileName, bbox_inches='tight')
-        print "plotted to {}".format(fileName)
-
-    growthPlot()
-
-    # Place a legend to the right of this smaller subplot.
-    #plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
 def computeVocabStats(stats, statsDir, prefix):
 
@@ -480,17 +346,6 @@ def computeDataStats(stats, statsDir):
     df=pd.DataFrame(plotDatas)
     df.to_csv(os.path.join(statsDir,"version-stats.csv"))
 
-def plotData(folders, prefix):
-    statsDir = folders['stats']
-
-    if prefix == "data":
-        df=pd.DataFrame.from_csv(os.path.join(statsDir,"version-stats.csv"))
-        dataPlot(df,folders['plots'])
-
-    else:
-        df = pd.DataFrame.from_csv(os.path.join(statsDir, "{}-vocab-stats.csv".format(prefix)))
-        vocabPlot(df,folders['plots'], prefix)
-
 def processData(args, folders,prefix):
     inDir = args.input
     print "Input folder {}".format(inDir)
@@ -500,6 +355,7 @@ def processData(args, folders,prefix):
     stats = computeFileDiffs(outConfig,prefix)
 
     if prefix == "data":
+
         computeDataStats(stats, folders['stats'])
     else:
         computeVocabStats(stats, folders['stats'], prefix)
@@ -525,7 +381,6 @@ def start(argv):
 
     for prefix in ['data','subj','pred','obj']:
         processData(args, folders, prefix)
-        plotData(folders, prefix)
 
 
 
@@ -533,6 +388,6 @@ def start(argv):
 
 if __name__ == "__main__":
     #start()
-    args=['-i', '/Users/jumbrich/Data/bear/dados_gov_br/dcat/sorted', '-o' '/Users/jumbrich/Data/bear/dados_gov_br/dynstats']
-    start(args)
-    #start(sys.argv[1:])
+    #args=['-i', '/Users/jumbrich/Data/bear/dados_gov_br/dcat/sorted', '-o' '/Users/jumbrich/Data/bear/dados_gov_br/dynstats']
+    #start(args)
+    start(sys.argv[1:])
