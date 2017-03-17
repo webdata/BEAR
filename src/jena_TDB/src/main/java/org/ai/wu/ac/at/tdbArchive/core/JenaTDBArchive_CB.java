@@ -51,9 +51,8 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 	 */
 	public void setOutputTime(String outputTime) {
 		this.outputTime = outputTime;
-		this.measureTime=true;
+		this.measureTime = true;
 	}
-
 
 	public JenaTDBArchive_CB() throws FileNotFoundException {
 		/*
@@ -134,8 +133,8 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 
 		for (Future<QueryResult> result : results) {
 			QueryResult res = result.get();
-			//System.out.println("version:" + res.getVersion());
-			//System.out.println("version:" + res.getSol().hasNext());
+			// System.out.println("version:" + res.getVersion());
+			// System.out.println("version:" + res.getSol().hasNext());
 			if (res.getIsAdd())
 				results_adds[res.getVersion()] = res.getSol();
 			else
@@ -151,7 +150,7 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 				QuerySolution soln = results_adds[i].next();
 				String rowResult = QueryUtils.serializeSolution(soln);
 
-				//System.out.println("****** RowResult ADD: " + rowResult);
+				// System.out.println("****** RowResult ADD: " + rowResult);
 
 				if (!finalDels.remove(rowResult))
 					finalAdds.add(rowResult);
@@ -161,7 +160,7 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 				QuerySolution soln = results_dels[i].next();
 				String rowResult = QueryUtils.serializeSolution(soln);
 
-				//System.out.println("****** RowResult DEL: " + rowResult);
+				// System.out.println("****** RowResult DEL: " + rowResult);
 
 				if (!finalAdds.remove(rowResult))
 					finalDels.add(rowResult);
@@ -182,7 +181,7 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 
 		}
 		executor.shutdown(); // always reclaim resources
-		//System.out.println("Time:" + (endTime - startTime));
+		// System.out.println("Time:" + (endTime - startTime));
 		return new DiffSolution(finalAdds, finalDels);
 
 	}
@@ -226,11 +225,13 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 
 		DescriptiveStatistics total = new DescriptiveStatistics();
 
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
+
 		while ((line = br.readLine()) != null) {
 			Map<Integer, DiffSolution> solutions = new HashMap<Integer, DiffSolution>();
 
 			String[] parts = line.split(" ");
-			String element = parts[0];
+			// String element = parts[0]; //we take all parts in order to process all TP patterns
 
 			/*
 			 * warmup the system
@@ -252,9 +253,9 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 					postversionQuery = Math.min((index + 1) * jump, TOTALVERSIONS - 1);
 					versionQuery = 0;
 				}
-				//System.out.println("versionQuery:" + versionQuery + " ; postQuery:" + postversionQuery);
+				// System.out.println("versionQuery:" + versionQuery + " ; postQuery:" + postversionQuery);
 
-				String queryString = QueryUtils.createLookupQuery(rol, element);
+				String queryString = QueryUtils.createLookupQuery(rol, parts);
 
 				Query query = QueryFactory.create(queryString);
 
@@ -269,8 +270,8 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 
 				Set<TaskThread> a = new HashSet<TaskThread>();
 				for (int i = versionQuery + 1; i <= postversionQuery; i++) {
-					TaskThread task_add = new TaskThread(query, dataset_adds.get(i), i, true, results_adds);
-					TaskThread task_del = new TaskThread(query, dataset_dels.get(i), i, false, results_dels);
+					TaskThread task_add = new TaskThread(query, dataset_adds.get(i), i, true, results_adds, askQuery);
+					TaskThread task_del = new TaskThread(query, dataset_dels.get(i), i, false, results_dels, askQuery);
 					task_add.start();
 					a.add(task_add);
 					task_del.start();
@@ -289,34 +290,42 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 				 */
 
 				for (int i = (versionQuery + 1); i <= postversionQuery; i++) {
+					if (!askQuery) {
+						while (results_adds.get(i).getSol().hasNext()) {
+							QuerySolution soln = results_adds.get(i).getSol().next();
+							String rowResult = QueryUtils.serializeSolution(soln);
 
-					while (results_adds.get(i).getSol().hasNext()) {
-						QuerySolution soln = results_adds.get(i).getSol().next();
-						String rowResult = QueryUtils.serializeSolution(soln);
+							// System.out.println("****** RowResult ADD: " +
+							// rowResult);
 
-						// System.out.println("****** RowResult ADD: " +
-						// rowResult);
+							if (!finalDels.remove(rowResult))
+								finalAdds.add(rowResult);
 
-						if (!finalDels.remove(rowResult))
-							finalAdds.add(rowResult);
+						}
+						while (results_dels.get(i).getSol().hasNext()) {
+							QuerySolution soln = results_dels.get(i).getSol().next();
+							String rowResult = QueryUtils.serializeSolution(soln);
 
-					}
-					while (results_dels.get(i).getSol().hasNext()) {
-						QuerySolution soln = results_dels.get(i).getSol().next();
-						String rowResult = QueryUtils.serializeSolution(soln);
+							// System.out.println("****** RowResult DEL: " +
+							// rowResult);
 
-						// System.out.println("****** RowResult DEL: " +
-						// rowResult);
+							if (!finalAdds.remove(rowResult))
+								finalDels.add(rowResult);
 
-						if (!finalAdds.remove(rowResult))
-							finalDels.add(rowResult);
-
+						}
+					} else {
+						Boolean sol_add = results_adds.get(i).getSolAsk();
+						if (!finalDels.remove(sol_add.toString()))
+							finalAdds.add(sol_add.toString());
+						Boolean sol_del = results_dels.get(i).getSolAsk();
+						if (!finalAdds.remove(sol_del.toString()))
+							finalDels.add(sol_del.toString());
 					}
 				}
 
 				solutions.put(postversionQuery, new DiffSolution(finalAdds, finalDels));
 				long endTime = System.currentTimeMillis();
-				//System.out.println("Time:" + (endTime - startTime));
+				// System.out.println("Time:" + (endTime - startTime));
 				total.addValue((endTime - startTime));
 				vStats.get(index).addValue((endTime - startTime));
 
@@ -332,10 +341,10 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 			// outFile = outputDIR + "/res-dyndiff-jump" + jump + "-" + inputFile.getName();
 			// PrintWriter pw = new PrintWriter(new File(outFile));
 			PrintWriter pw = new PrintWriter(new File(outputTime));
-			pw.println("##bucket, min, mean, max, stddev, count");
+			pw.println("##bucket, min, mean, max, stddev, count, total");
 			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
 				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
-						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN());
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
 			}
 			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
 					+ total.getN());
@@ -409,8 +418,8 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 			String element = parts[3];
 			String queryString = QueryUtils.createLookupQuery(rol, element);
 
-			//System.out.println("Query at version " + staticVersionQuery);
-			//System.out.println(queryString);
+			// System.out.println("Query at version " + staticVersionQuery);
+			// System.out.println(queryString);
 
 			long startTime = System.currentTimeMillis();
 			Query query = QueryFactory.create(queryString);
@@ -418,7 +427,7 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 			ret.add(materializeQuery(staticVersionQuery, query));
 
 			long endTime = System.currentTimeMillis();
-			//System.out.println("Time:" + (endTime - startTime));
+			// System.out.println("Time:" + (endTime - startTime));
 
 			vStats.get(staticVersionQuery).addValue((endTime - startTime));
 
@@ -462,28 +471,38 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 			vStats.put(i, new DescriptiveStatistics());
 		}
 
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
+
 		while ((line = br.readLine()) != null) {
 			String[] parts = line.split(" ");
-			String element = parts[0];
+			// String element = parts[0]; //we take all parts in order to process all TP patterns
 
 			/*
 			 * warmup the system
 			 */
 			warmup();
 
-			String queryString = QueryUtils.createLookupQuery(rol, element);
+			String queryString = QueryUtils.createLookupQuery(rol, parts);
 			Map<Integer, ArrayList<String>> solutions = new HashMap<Integer, ArrayList<String>>();
 			for (int i = 0; i < TOTALVERSIONS; i++) {
-				//System.out.println("Query at version " + i);
-				//System.out.println(queryString);
+				// System.out.println("Query at version " + i);
+				// System.out.println(queryString);
 
 				Query query = QueryFactory.create(queryString);
+				// FIXME TEST cold scenario
+				// String[] commands = {"/bin/sh", "-c" , "sync && echo 3 > /proc/sys/vm/drop_caches"};
+				// Process pr = Runtime.getRuntime().exec(commands);
+				// pr.waitFor();
+
 				long startTime = System.currentTimeMillis();
 
-				solutions.put(i, materializeQuery(i, query));
+				if (!askQuery)
+					solutions.put(i, materializeQuery(i, query));
+				else
+					solutions.put(i, materializeASKQuery(i, query));
 
 				long endTime = System.currentTimeMillis();
-				//System.out.println("Time:" + (endTime - startTime));
+				// System.out.println("Time:" + (endTime - startTime));
 				vStats.get(i).addValue((endTime - startTime));
 
 			}
@@ -495,10 +514,10 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 		if (measureTime) {
 			// PrintWriter pw = new PrintWriter(new File(outputDIR + "/res-dynmat-" + inputFile.getName()));
 			PrintWriter pw = new PrintWriter(new File(outputTime));
-			pw.println("##ver, min, mean, max, stddev, count");
+			pw.println("##ver, min, mean, max, stddev, count, total");
 			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
 				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
-						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN());
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
 			}
 			pw.close();
 		}
@@ -546,20 +565,70 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 		HashSet<String> finalResults = new HashSet<String>();
 
 		for (int i = 0; i <= staticVersionQuery; i++) {
-			//System.out.println("Iterating results " + i);
+			// System.out.println("Iterating results " + i);
 			while (results_adds.get(i).getSol().hasNext()) {
 				QuerySolution soln = results_adds.get(i).getSol().next();
 				String rowResult = QueryUtils.serializeSolution(soln);
 				finalResults.add(rowResult);
-				//System.out.println("****** RowResult: " + rowResult);
+				// System.out.println("****** RowResult: " + rowResult);
 			}
 			while (results_dels.get(i).getSol().hasNext()) {
 				QuerySolution soln = results_dels.get(i).getSol().next();
 				String rowResult = QueryUtils.serializeSolution(soln);
 
-				//System.out.println("****** RowResult: " + rowResult);
+				// System.out.println("****** RowResult: " + rowResult);
 				finalResults.remove(rowResult);
 			}
+		}
+
+		return new ArrayList<String>(finalResults);
+
+	}
+
+	/**
+	 * @param dataset
+	 * @param staticVersionQuery
+	 * @param query
+	 * @return
+	 */
+	private ArrayList<String> materializeASKQuery(int staticVersionQuery, Query query) throws InterruptedException, ExecutionException {
+
+		// ArrayList<String> ret = new ArrayList<String>();
+
+		/**
+		 * START PARALELL
+		 */
+
+		TreeMap<Integer, QueryResult> results_adds = new TreeMap<Integer, QueryResult>();
+		TreeMap<Integer, QueryResult> results_dels = new TreeMap<Integer, QueryResult>();
+
+		Set<TaskThread> a = new HashSet<TaskThread>();
+		for (int i = 0; i <= staticVersionQuery; i++) {
+			TaskThread task_add = new TaskThread(query, dataset_adds.get(i), i, true, results_adds, true);
+			TaskThread task_del = new TaskThread(query, dataset_dels.get(i), i, false, results_dels, true);
+			task_add.start();
+			a.add(task_add);
+			task_del.start();
+			a.add(task_del);
+		}
+		for (TaskThread an : a) {
+			try {
+				an.join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		/**
+		 * END PARALELL
+		 */
+
+		HashSet<String> finalResults = new HashSet<String>();
+
+		for (int i = 0; i <= staticVersionQuery; i++) {
+			finalResults.add(results_adds.get(i).getSolAsk().toString());
+			finalResults.remove(results_dels.get(i).getSolAsk().toString());
+
 		}
 
 		return new ArrayList<String>(finalResults);
@@ -613,19 +682,19 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 		// for all versions
 		for (int i = 0; i < TOTALVERSIONS; i++) {
 
-			//System.out.println("Computing results ADD for version " + i);
+			// System.out.println("Computing results ADD for version " + i);
 			while (results_adds[i].hasNext()) {
 				QuerySolution soln = results_adds[i].next();
 				String rowResult = QueryUtils.serializeSolution(soln);
 
 				finalResults.add(rowResult);
-				//System.out.println("ADD:" + rowResult);
+				// System.out.println("ADD:" + rowResult);
 			}
-			//System.out.println("computing results DEL for version " + i);
+			// System.out.println("computing results DEL for version " + i);
 			while (results_dels[i].hasNext()) {
 				QuerySolution soln = results_dels[i].next();
 				String rowResult = QueryUtils.serializeSolution(soln);
-				//System.out.println("DEL:" + rowResult);
+				// System.out.println("DEL:" + rowResult);
 				finalResults.remove(rowResult);
 			}
 
@@ -637,7 +706,7 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 			 * Iterator<String> it = finalResults.iterator(); String res; while (it.hasNext()) { res = it.next(); // element is the response
 			 * //printStream.println(i + "," + res); // System.out.println("count:" + count); }
 			 */
-			//System.out.println("Insert in i=" + i + " :" + finalResults);
+			// System.out.println("Insert in i=" + i + " :" + finalResults);
 			ret.put(i, new ArrayList<String>(finalResults));
 		}
 
@@ -683,18 +752,20 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 		}
 		DescriptiveStatistics total = new DescriptiveStatistics();
 
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
+
 		while ((line = br.readLine()) != null) {
 			Map<Integer, ArrayList<String>> AllSolutions = new HashMap<Integer, ArrayList<String>>();
 
 			String[] parts = line.split(" ");
-			String element = parts[0];
+			// String element = parts[0]; //we take all parts in order to process all TP patterns
 
 			/*
 			 * warmup the system
 			 */
 			warmup();
 
-			String queryString = QueryUtils.createLookupQuery(rol, element);
+			String queryString = QueryUtils.createLookupQuery(rol, parts);
 			Query query = QueryFactory.create(queryString);
 
 			long startTime = System.currentTimeMillis();
@@ -708,8 +779,8 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 
 			Set<TaskThread> a = new HashSet<TaskThread>();
 			for (int i = 0; i < TOTALVERSIONS; i++) {
-				TaskThread task_add = new TaskThread(query, dataset_adds.get(i), i, true, results_adds);
-				TaskThread task_del = new TaskThread(query, dataset_dels.get(i), i, false, results_dels);
+				TaskThread task_add = new TaskThread(query, dataset_adds.get(i), i, true, results_adds, askQuery);
+				TaskThread task_del = new TaskThread(query, dataset_dels.get(i), i, false, results_dels, askQuery);
 				task_add.start();
 				a.add(task_add);
 				task_del.start();
@@ -732,19 +803,25 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 			// for all versions
 			for (int i = 0; i < TOTALVERSIONS; i++) {
 
-				//System.out.println("computing results ADD for version " + i);
-				while (results_adds.get(i).getSol().hasNext()) {
-					QuerySolution soln = results_adds.get(i).getSol().next();
-					String rowResult = QueryUtils.serializeSolution(soln);
+				if (!askQuery) {
+					// System.out.println("computing results ADD for version " + i);
+					while (results_adds.get(i).getSol().hasNext()) {
+						QuerySolution soln = results_adds.get(i).getSol().next();
+						String rowResult = QueryUtils.serializeSolution(soln);
 
-					finalResults.add(rowResult);
+						finalResults.add(rowResult);
+					}
+					// System.out.println("computing results ADD for version " + i);
+					while (results_dels.get(i).getSol().hasNext()) {
+						QuerySolution soln = results_dels.get(i).getSol().next();
+						String rowResult = QueryUtils.serializeSolution(soln);
+
+						finalResults.remove(rowResult);
+					}
 				}
-				//System.out.println("computing results ADD for version " + i);
-				while (results_dels.get(i).getSol().hasNext()) {
-					QuerySolution soln = results_dels.get(i).getSol().next();
-					String rowResult = QueryUtils.serializeSolution(soln);
-
-					finalResults.remove(rowResult);
+				else{
+					finalResults.add(results_adds.get(i).getSolAsk().toString());
+					finalResults.remove(results_dels.get(i).getSolAsk().toString());
 				}
 
 				/*
@@ -754,7 +831,7 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 				AllSolutions.put(i, new ArrayList<String>(finalResults));
 			}
 			long endTime = System.currentTimeMillis();
-			//System.out.println("Time:" + (endTime - startTime));
+			// System.out.println("Time:" + (endTime - startTime));
 			total.addValue((endTime - startTime));
 
 			// printStreamTime.println(queryFile + "," + (endTime - startTime));
@@ -766,9 +843,9 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 		if (measureTime) {
 			// PrintWriter pw = new PrintWriter(new File(outputDIR + "/res-dynver-" + inputFile.getName()));
 			PrintWriter pw = new PrintWriter(new File(outputTime));
-			pw.println("##name, min, mean, max, stddev, count");
+			pw.println("##name, min, mean, max, stddev, count,total");
 			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
-					+ total.getN());
+					+ total.getN()+" "+total.getSum());
 			pw.close();
 		}
 		return ret;
@@ -782,7 +859,6 @@ public class JenaTDBArchive_CB implements JenaTDBArchive {
 	 */
 	public void warmup() throws InterruptedException, ExecutionException {
 		Query query = QueryFactory.create(createWarmupQuery());
-	
 
 		/**
 		 * START PARALELL

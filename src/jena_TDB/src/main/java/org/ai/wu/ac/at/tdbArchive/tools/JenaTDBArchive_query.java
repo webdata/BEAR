@@ -46,6 +46,7 @@ public class JenaTDBArchive_query {
 		int jump = 0;
 		String rol = "subject"; // for bulk queries
 		Boolean silent = false;
+		Boolean splitResultsByVersion=false;
 		try {
 
 			System.out.println(WelcomeASCII());
@@ -87,6 +88,10 @@ public class JenaTDBArchive_query {
 			Option outputDirOpt = new Option("o", "OutputResults", true, "Output file with Results");
 			outputDirOpt.setRequired(false);
 			options.addOption(outputDirOpt);
+			
+			Option SplitVersionOpt = new Option("S", "SplitResults", false, "Split Results by version (creates one file fer version)");
+			SplitVersionOpt.setRequired(false);
+			options.addOption(SplitVersionOpt);
 
 			Option rolOpt = new Option("r", "rol", true, "Rol of the Resource in the query: subject (s) | predicate (p) | object (o)");
 			rolOpt.setRequired(false);
@@ -162,6 +167,9 @@ public class JenaTDBArchive_query {
 			if (cmdLine.hasOption("s")) {
 				silent = true;
 			}
+			if (cmdLine.hasOption("S")) {
+				splitResultsByVersion = true;
+			}
 
 		} catch (ParseException e) {
 			HelpFormatter format = new HelpFormatter();
@@ -187,11 +195,16 @@ public class JenaTDBArchive_query {
 		if (outputTime != "") {
 			jenaArchive.setOutputTime(outputTime);
 		}
-
+		System.out.println("Loading archive "+policy.toUpperCase()+"...");
+		long startTime = System.currentTimeMillis();
 		jenaArchive.load(dirTDBs);
+		long endTime = System.currentTimeMillis();
+		System.out.println("Loaded in "+(endTime - startTime) +" ms");
+		
 		PrintStream os = System.out;
 		if (outputResults != "") {
-			os = new PrintStream(outputResults);
+			if (!splitResultsByVersion)
+				os = new PrintStream(outputResults);
 		}
 		PrintStream printStream = new PrintStream(os);
 
@@ -220,13 +233,19 @@ public class JenaTDBArchive_query {
 						ArrayList<ArrayList<String>> solution = jenaArchive.bulkMatQuerying(queryFile, rol);
 						if (!silent) {
 							os.println("\n**** SOLUTIONS bulkMatQuerying:");
-							printSolutionSeveralQueries(os, solution);
+							if (!splitResultsByVersion)
+								printSolutionSeveralQueries(os, solution);
+							else
+								printSolutionSeveralQueries(outputResults, solution);
 						}
 					} else {
 						ArrayList<Map<Integer, ArrayList<String>>> solution = jenaArchive.bulkAllMatQuerying(queryFileDynamic, rol);
 						if (!silent) {
 							os.println("\n**** SOLUTIONS bulkAllMatQuerying:");
-							printSolutionSeveralQueriesAllVersions(os, solution);
+							if (!splitResultsByVersion)
+								printSolutionSeveralQueriesAllVersions(os, solution);
+							else
+								printSolutionSeveralQueriesAllVersions(outputResults,solution);
 						}
 					}
 				}
@@ -248,7 +267,10 @@ public class JenaTDBArchive_query {
 					ArrayList<Map<Integer, DiffSolution>> solution = jenaArchive.bulkAlldiffQuerying(queryFileDynamic, rol, jump);
 					if (!silent) {
 						os.println("\n**** SOLUTIONS:");
-						printSolutionDiffAll(os, solution);
+						if (!splitResultsByVersion)
+							printSolutionDiffAll(os, solution);
+						else
+							printSolutionDiffAll(outputResults,solution);
 					}
 				}
 			}
@@ -274,7 +296,10 @@ public class JenaTDBArchive_query {
 					ArrayList<Map<Integer, ArrayList<String>>> solution = jenaArchive.bulkAllVerQuerying(queryFileDynamic, rol);
 					if (!silent) {
 						os.println("\n**** SOLUTIONS:");
-						printSolutionVerSeveralQueries(os, solution);
+						if (!splitResultsByVersion)
+							printSolutionVerSeveralQueries(os, solution);
+						else
+							printSolutionVerSeveralQueries(outputResults, solution);
 					}
 				}
 
@@ -309,6 +334,29 @@ public class JenaTDBArchive_query {
 		}
 
 	}
+	private static void printSolutionDiffAll(String filename, ArrayList<Map<Integer, DiffSolution>> sols) throws FileNotFoundException {
+
+		
+		int numQuery=0;
+		for (Map<Integer, DiffSolution> solJump : sols) {
+			numQuery++;
+			PrintStream os = new PrintStream(filename+"-query-"+numQuery);
+			
+			for (Integer i : solJump.keySet()) {
+				
+					
+				for (String sol : solJump.get(i).getAdds()) {
+					os.println("[ADD in jump "+i+"]" +sol);
+				}
+				for (String sol : solJump.get(i).getDels()) {
+					os.println("[DEL in jump "+i+"]" +sol);
+				}
+				
+			}
+			os.close();
+		}
+		
+	}
 
 	private static void printSolutionDiff(PrintStream os, DiffSolution sols) {
 		os.println("\nSolution ADDs:");
@@ -338,6 +386,18 @@ public class JenaTDBArchive_query {
 			i++;
 		}
 	}
+	private static void printSolutionSeveralQueries(String filename, ArrayList<ArrayList<String>> sols) throws FileNotFoundException {
+		int numQuery = 0;
+		for (ArrayList<String> solFile : sols) {
+			numQuery++;
+			PrintStream os = new PrintStream(filename+"-query-"+numQuery);
+			for (String sol : solFile) {
+				os.println(sol);
+			}
+
+			os.close();
+		}
+	}
 
 	private static void printSolutionSeveralQueriesAllVersions(PrintStream os, ArrayList<Map<Integer, ArrayList<String>>> sols) {
 		int i = 1;
@@ -353,7 +413,20 @@ public class JenaTDBArchive_query {
 		}
 
 	}
+	private static void printSolutionSeveralQueriesAllVersions(String filename, ArrayList<Map<Integer, ArrayList<String>>> sols) throws FileNotFoundException {
+		int numQuery = 0;
+		for (Map<Integer, ArrayList<String>> solFile : sols) {
+			numQuery++;
+			PrintStream os = new PrintStream(filename+"-query-"+numQuery);
+			for (Integer version : solFile.keySet()) {
+				for (String sol : solFile.get(version)) {
+					os.println("[Solution in version "+version+"]"+sol);
+				}
+			}
+			os.close();
+		}
 
+	}
 	private static void printSolutionVer(PrintStream os, Map<Integer, ArrayList<String>> sols) {
 
 		for (Integer i : sols.keySet()) {
@@ -379,6 +452,22 @@ public class JenaTDBArchive_query {
 				}
 			}
 			queryno++;
+
+		}
+
+	}
+	private static void printSolutionVerSeveralQueries(String filename, ArrayList<Map<Integer, ArrayList<String>>> sols) throws FileNotFoundException {
+		int numQuery=0;
+		for (Map<Integer, ArrayList<String>> solutionQueries : sols) {
+			numQuery++;
+			PrintStream os = new PrintStream(filename+"-query-"+numQuery);
+			for (Integer i : solutionQueries.keySet()) {
+
+				for (String sol : solutionQueries.get(i)) {
+					os.println("[Solution in version "+i+"]"+sol);
+				}
+			}
+			os.close();
 		}
 
 	}

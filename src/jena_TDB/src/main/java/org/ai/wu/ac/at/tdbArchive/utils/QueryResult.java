@@ -6,6 +6,13 @@ import org.apache.jena.query.ResultSet;
 public final class QueryResult {
 	QueryExecution ex;
 	ResultSet sol;
+	Boolean solAsk;
+	public Boolean getSolAsk() {
+		return solAsk;
+	}
+	public void setSolAsk(Boolean solAsk) {
+		this.solAsk = solAsk;
+	}
 	int version;
 	Boolean isAdd; // otherwise is del
 	public Boolean getIsAdd() {
@@ -23,6 +30,7 @@ public final class QueryResult {
 	public ResultSet getSol() {
 		return sol;
 	}
+	
 	public void setSol(ResultSet sol) {
 		this.sol = sol;
 	}

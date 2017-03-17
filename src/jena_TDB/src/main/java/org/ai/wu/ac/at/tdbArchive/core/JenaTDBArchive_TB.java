@@ -77,15 +77,14 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 	 */
 	public void setOutputTime(String outputTime) {
 		this.outputTime = outputTime;
-		this.measureTime=true;
+		this.measureTime = true;
 	}
-
 
 	public JenaTDBArchive_TB() throws FileNotFoundException {
-		this.measureTime=false;
+		this.measureTime = false;
 	}
 
-	/** 
+	/**
 	 * Load Jena TDB from directory
 	 * 
 	 * @param directory
@@ -107,10 +106,10 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 		while (results.hasNext()) {
 			QuerySolution soln = results.next();
 			String numVersions = soln.getLiteral("numVersions").getLexicalForm();
-			//System.out.println("numVersions:" + numVersions);
+			// System.out.println("numVersions:" + numVersions);
 			TOTALVERSIONS = Integer.parseInt(numVersions);
 		}
-		//System.out.println("TOTALVERSIONS:" + TOTALVERSIONS);
+		// System.out.println("TOTALVERSIONS:" + TOTALVERSIONS);
 	}
 
 	/**
@@ -233,6 +232,8 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 		BufferedReader br = new BufferedReader(new FileReader(inputFile));
 		String line = "";
 
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
+
 		TreeMap<Integer, DescriptiveStatistics> vStats = new TreeMap<Integer, DescriptiveStatistics>();
 		for (int i = 0; i < TOTALVERSIONS; i++) {
 			vStats.put(i, new DescriptiveStatistics());
@@ -244,7 +245,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			Map<Integer, DiffSolution> solutions = new HashMap<Integer, DiffSolution>();
 
 			String[] parts = line.split(" ");
-			String element = parts[0];
+			// String element = parts[0];
 
 			/*
 			 * warmup the system
@@ -266,56 +267,71 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 					postversionQuery = Math.min((index + 1) * jump, TOTALVERSIONS - 1);
 					versionQuery = 0;
 				}
-				//System.out.println("versionQuery:" + versionQuery + " ; postQuery:" + postversionQuery);
+				// System.out.println("versionQuery:" + versionQuery + " ; postQuery:" + postversionQuery);
 
-				String queryStringStart = QueryUtils.createLookupQueryAnnotatedGraph(rol, element, versionQuery, metadataVersions);
-				String queryStringEnd = QueryUtils.createLookupQueryAnnotatedGraph(rol, element, postversionQuery, metadataVersions);
+				String queryStringStart = QueryUtils.createLookupQueryAnnotatedGraph(rol, parts, versionQuery, metadataVersions);
+				String queryStringEnd = QueryUtils.createLookupQueryAnnotatedGraph(rol, parts, postversionQuery, metadataVersions);
 				long startTime = System.currentTimeMillis();
 				QueryExecution qexecStart = QueryExecutionFactory.create(queryStringStart, dataset);
-				ResultSet resultsStart = qexecStart.execSelect();
+				QueryExecution qexecEnd = QueryExecutionFactory.create(queryStringEnd, dataset);
 				HashSet<String> finalResultsStart = new HashSet<String>();
 				HashSet<String> finalResultsEnd = new HashSet<String>();
+				if (!askQuery) {
+					ResultSet resultsStart = qexecStart.execSelect();
 
-				QuerySolution soln = null;
-				while (resultsStart.hasNext()) {
-					soln = resultsStart.next();
-					String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
-					// System.out.println("solutionStart: "+rowResult);
-					finalResultsStart.add(rowResult);
+					QuerySolution soln = null;
+					while (resultsStart.hasNext()) {
+						soln = resultsStart.next();
+						String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
+						// System.out.println("solutionStart: "+rowResult);
+						finalResultsStart.add(rowResult);
+					}
+
+					ResultSet resultsEnd = qexecEnd.execSelect();
+
+					while (resultsEnd.hasNext()) {
+						soln = resultsEnd.next();
+						String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
+						// System.out.println("solutionEnd: "+rowResult);
+						finalResultsEnd.add(rowResult);
+						if (!finalResultsStart.contains(rowResult)) {
+							// result has been added
+							// System.out.println("add: " + rowResult);
+							finalAdds.add(rowResult);
+
+						}
+
+					}
+					// check potential results deleted
+
+					for (String solStart : finalResultsStart) {
+						if (!finalResultsEnd.contains(solStart)) {
+							// result has been deleted
+							// System.out.println("del: " + solStart);
+							finalDels.add(solStart);
+
+						}
+					}
+
+				} else {
+					Boolean resultStart = qexecStart.execAsk();
+					finalResultsStart.add(resultStart.toString());
+					Boolean resultsEnd = qexecEnd.execAsk();
+					finalResultsEnd.add(resultsEnd.toString());
+					if (!finalResultsStart.contains(resultsEnd.toString())) {
+						finalAdds.add(resultsEnd.toString());
+					}
+					if (!finalResultsEnd.contains(resultStart.toString())) {
+						finalDels.add(resultStart.toString());
+					}
+
 				}
 				qexecStart.close();
-
-				QueryExecution qexecEnd = QueryExecutionFactory.create(queryStringEnd, dataset);
-				ResultSet resultsEnd = qexecEnd.execSelect();
-
-				while (resultsEnd.hasNext()) {
-					soln = resultsEnd.next();
-					String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
-					// System.out.println("solutionEnd: "+rowResult);
-					finalResultsEnd.add(rowResult);
-					if (!finalResultsStart.contains(rowResult)) {
-						// result has been added
-						//System.out.println("add: " + rowResult);
-						finalAdds.add(rowResult);
-
-					}
-
-				}
-				// check potential results deleted
-
-				for (String solStart : finalResultsStart) {
-					if (!finalResultsEnd.contains(solStart)) {
-						// result has been deleted
-						//System.out.println("del: " + solStart);
-						finalDels.add(solStart);
-
-					}
-				}
-
 				qexecEnd.close();
+
 				solutions.put(postversionQuery, new DiffSolution(finalAdds, finalDels));
 				long endTime = System.currentTimeMillis();
-				//System.out.println("Time:" + (endTime - startTime));
+				// System.out.println("Time:" + (endTime - startTime));
 				total.addValue((endTime - startTime));
 				vStats.get(index).addValue((endTime - startTime));
 
@@ -324,10 +340,10 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 		}
 		if (measureTime) {
 			PrintWriter pw = new PrintWriter(new File(outputTime));
-			pw.println("##bucket, min, mean, max, stddev, count");
+			pw.println("##bucket, min, mean, max, stddev, count,total");
 			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
 				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
-						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN());
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
 			}
 			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
 					+ total.getN());
@@ -396,7 +412,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			int staticVersionQuery = Integer.parseInt(parts[0]);
 			String element = parts[3];
 
-			//System.out.println("Query at version " + staticVersionQuery);
+			// System.out.println("Query at version " + staticVersionQuery);
 			String queryString = QueryUtils.createLookupQueryAnnotatedGraph(rol, element, staticVersionQuery, metadataVersions);
 
 			Query query = QueryFactory.create(queryString);
@@ -405,7 +421,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			ret.add(materializeQuery(staticVersionQuery, query));
 
 			long endTime = System.currentTimeMillis();
-			//System.out.println("Time:" + (endTime - startTime));
+			// System.out.println("Time:" + (endTime - startTime));
 
 			vStats.get(staticVersionQuery).addValue((endTime - startTime));
 
@@ -449,11 +465,14 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			vStats.put(i, new DescriptiveStatistics());
 		}
 
-		while ((line = br.readLine()) != null) {
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
 
+		int lines = 0;
+		while ((line = br.readLine()) != null) {
+			lines++;
 			String[] parts = line.split(" ");
 
-			String element = parts[0];
+			// String element = parts[0];
 
 			/*
 			 * warmup the system
@@ -461,14 +480,17 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			warmup();
 
 			Map<Integer, ArrayList<String>> solutions = new HashMap<Integer, ArrayList<String>>();
+			System.err.println("Query " + lines);
 			for (int i = 0; i < TOTALVERSIONS; i++) {
-				//System.out.println("\n Query at version " + i);
+				// System.out.println("\n Query at version " + i);
 				long startTime = System.currentTimeMillis();
-				String queryString = QueryUtils.createLookupQueryAnnotatedGraph(rol, element, i, metadataVersions);
+				String queryString = QueryUtils.createLookupQueryAnnotatedGraph(rol, parts, i, metadataVersions);
 				// System.out.println(queryString);
 				Query query = QueryFactory.create(queryString);
-				solutions.put(i, materializeQuery(i, query));
-
+				if (!askQuery)
+					solutions.put(i, materializeQuery(i, query));
+				else
+					solutions.put(i, materializeASKQuery(i, query));
 				long endTime = System.currentTimeMillis();
 				// System.out.println("Time:" + (endTime - startTime));
 
@@ -485,7 +507,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			pw.println("##ver, min, mean, max, stddev, count");
 			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
 				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
-						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN());
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
 			}
 			pw.close();
 		}
@@ -515,9 +537,28 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 
 			String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
 
-			//System.out.println(rowResult);
+			// System.out.println(rowResult);
 			ret.add(rowResult);
 		}
+		qexec.close();
+		return ret;
+	}
+
+	/**
+	 * @param dataset
+	 * @param staticVersionQuery
+	 * @param query
+	 * @return
+	 */
+	private ArrayList<String> materializeASKQuery(int staticVersionQuery, Query query) throws InterruptedException, ExecutionException {
+		QueryExecution qexec = QueryExecutionFactory.create(query, dataset);
+		ArrayList<String> ret = new ArrayList<String>();
+		qexec.getContext().set(ARQ.symLogExec, Explain.InfoLevel.NONE);
+
+		Boolean result = qexec.execAsk();
+
+		ret.add(result.toString());
+
 		qexec.close();
 		return ret;
 	}
@@ -631,6 +672,8 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 		BufferedReader br = new BufferedReader(new FileReader(inputFile));
 		String line = "";
 
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
+
 		TreeMap<Integer, DescriptiveStatistics> vStats = new TreeMap<Integer, DescriptiveStatistics>();
 		for (int i = 0; i < TOTALVERSIONS; i++) {
 			vStats.put(i, new DescriptiveStatistics());
@@ -647,24 +690,29 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 
 			String[] parts = line.split(" ");
 
-			String element = parts[0];
+			// String element = parts[0];
 
-			String queryString = QueryUtils.createLookupQueryAnnotatedGraph(rol, element, metadataVersions);
+			String queryString = QueryUtils.createLookupQueryAnnotatedGraph(rol, parts, metadataVersions);
 
+			System.out.println("the queryString: " + queryString);
 			Query query = QueryFactory.create(queryString);
 			long startTime = System.currentTimeMillis();
 			QueryExecution qexec = QueryExecutionFactory.create(query, dataset);
 			qexec.getContext().set(ARQ.symLogExec, Explain.InfoLevel.NONE);
 
 			ResultSet results = qexec.execSelect();
-
 			while (results.hasNext()) {
+				System.out.println("SOLUTION");
 				QuerySolution soln = results.next();
 				// assume we have a graph variable as a response
 				Literal version = (Literal) soln.get("version");
 				int ver = version.getInt();
-				String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
-
+				String rowResult ="";
+				if (!askQuery){
+					rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
+				}
+				else 
+					 rowResult = "true";
 				if (AllSolutions.get(ver) != null) {
 					AllSolutions.get(ver).add(rowResult);
 				} else {
@@ -672,15 +720,16 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 					newSol.add(rowResult);
 					AllSolutions.put(ver, newSol);
 				}
-				//System.out.println("****** RowResult: " + rowResult);
-				//System.out.println("version " + ver);
+				System.out.println("****** RowResult: " + rowResult);
+				// System.out.println("version " + ver);
 				// + numRows);
 
 			}
+
 			ret.add(AllSolutions);
 
 			long endTime = System.currentTimeMillis();
-			//System.out.println("Time:" + (endTime - startTime));
+			// System.out.println("Time:" + (endTime - startTime));
 			// printStreamTime.println(queryFile + "," + (endTime - startTime));
 			qexec.close();
 			total.addValue((endTime - startTime));
@@ -694,7 +743,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			PrintWriter pw = new PrintWriter(new File(outputTime));
 			pw.println("##name, min, mean, max, stddev, count");
 			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
-					+ total.getN());
+					+ total.getN()+" "+total.getSum());
 			pw.close();
 		}
 		return ret;
@@ -725,7 +774,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 		}
 
 		long endTime = System.currentTimeMillis();
-		//System.out.println("Warmup Time:" + (endTime - startTime));
+		// System.out.println("Warmup Time:" + (endTime - startTime));
 
 		qexec.close();
 

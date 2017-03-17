@@ -14,6 +14,15 @@ public final class TaskCallable implements Callable<QueryResult> {
 		this.dataset = dataset;
 		this.version = version;
 		this.isAdd = isAdd;
+		this.askQuery=false;
+		
+	}
+	public TaskCallable(Query query, Dataset dataset, int version, Boolean isAdd,Boolean askQuery) {
+		this.query = query;
+		this.dataset = dataset;
+		this.version = version;
+		this.isAdd = isAdd;
+		this.askQuery=askQuery;
 		
 	}
 
@@ -21,7 +30,10 @@ public final class TaskCallable implements Callable<QueryResult> {
 	public QueryResult call() throws Exception {
 		QueryResult ret = new QueryResult();
 		ret.setEx(QueryExecutionFactory.create(query, dataset));
-		ret.setSol(ret.getEx().execSelect());
+		if (!askQuery)
+			ret.setSol(ret.getEx().execSelect());
+		else
+			ret.solAsk = ret.ex.execAsk();
 		ret.setVersion(version);
 		ret.setIsAdd(isAdd);
 		return ret;
@@ -35,5 +47,6 @@ public final class TaskCallable implements Callable<QueryResult> {
 	private final Dataset dataset;
 	private final int version;
 	private final Boolean isAdd; // otherwise is del
+	private final Boolean askQuery;
 	
 }

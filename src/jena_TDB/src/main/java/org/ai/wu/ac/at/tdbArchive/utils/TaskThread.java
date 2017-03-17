@@ -18,6 +18,7 @@ public final class TaskThread extends Thread {
 		this.version = version;
 		this.res = res;
 		this.isAdd = true;
+		this.askQuery=false;
 	}
 	public TaskThread(Query query, Dataset dataset, int version, Boolean isAdd, TreeMap<Integer, QueryResult> res) {
 		this.query = query;
@@ -25,8 +26,24 @@ public final class TaskThread extends Thread {
 		this.version = version;
 		this.res = res;
 		this.isAdd = isAdd;
+		this.askQuery=false;
 	}
-
+	public TaskThread(Query query, Dataset dataset, int version, TreeMap<Integer, QueryResult> res,Boolean askQuery) {
+		this.query = query;
+		this.dataset = dataset;
+		this.version = version;
+		this.res = res;
+		this.isAdd = true;
+		this.askQuery=askQuery;
+	}
+	public TaskThread(Query query, Dataset dataset, int version, Boolean isAdd, TreeMap<Integer, QueryResult> res,Boolean askQuery) {
+		this.query = query;
+		this.dataset = dataset;
+		this.version = version;
+		this.res = res;
+		this.isAdd = isAdd;
+		this.askQuery=askQuery;
+	}
 	@Override
 	public synchronized void start() {
 		// System.out.println("version:"+this.version);
@@ -34,7 +51,10 @@ public final class TaskThread extends Thread {
 		// System.out.println("isAdd:"+this.isAdd);
 		QueryResult ret = new QueryResult();
 		ret.ex = QueryExecutionFactory.create(query, dataset);
-		ret.sol = ret.ex.execSelect();
+		if (!askQuery)
+			ret.sol = ret.ex.execSelect();
+		else
+			ret.solAsk = ret.ex.execAsk();
 		ret.version = version;
 		ret.isAdd = isAdd;
 		this.res.put(version, ret);
@@ -44,4 +64,5 @@ public final class TaskThread extends Thread {
 	private final Dataset dataset;
 	private final int version;
 	private final Boolean isAdd;
+	private final Boolean askQuery;
 }

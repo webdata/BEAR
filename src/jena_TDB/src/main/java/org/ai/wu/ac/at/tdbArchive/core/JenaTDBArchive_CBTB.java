@@ -366,10 +366,10 @@ public class JenaTDBArchive_CBTB implements JenaTDBArchive {
 		if (measureTime) {
 
 			PrintWriter pw = new PrintWriter(new File(outputTime));
-			pw.println("##bucket, min, mean, max, stddev, count");
+			pw.println("##bucket, min, mean, max, stddev, count,total");
 			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
 				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
-						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN());
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
 			}
 			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
 					+ total.getN());
@@ -502,10 +502,10 @@ public class JenaTDBArchive_CBTB implements JenaTDBArchive {
 		if (measureTime) {
 			// PrintWriter pw = new PrintWriter(new File(outputDIR + "/res-dynmat-" + inputFile.getName()));
 			PrintWriter pw = new PrintWriter(new File(outputTime));
-			pw.println("##ver, min, mean, max, stddev, count");
+			pw.println("##ver, min, mean, max, stddev, count,total");
 			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
 				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
-						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN());
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
 			}
 			pw.close();
 		}
@@ -820,9 +820,9 @@ public class JenaTDBArchive_CBTB implements JenaTDBArchive {
 		if (measureTime) {
 			// PrintWriter pw = new PrintWriter(new File(outputDIR + "/res-dynver-" + inputFile.getName()));
 			PrintWriter pw = new PrintWriter(new File(outputTime));
-			pw.println("##name, min, mean, max, stddev, count");
+			pw.println("##name, min, mean, max, stddev, count, total");
 			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
-					+ total.getN());
+					+ total.getN()+" "+total.getSum());
 			pw.close();
 		}
 		return ret;

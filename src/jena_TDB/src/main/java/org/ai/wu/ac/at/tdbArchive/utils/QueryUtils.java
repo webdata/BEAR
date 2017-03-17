@@ -14,22 +14,101 @@ import org.apache.jena.rdf.model.Resource;
  */
 public final class QueryUtils {
 
-	public static final String createLookupQuery(final String rol, String element) {
-		String queryString = "SELECT ?element1 ?element2 WHERE { ";
+	public static final QueryRol getQueryRol(String rol){
 		if (rol.equalsIgnoreCase("subject") || rol.equalsIgnoreCase("s") || rol.equalsIgnoreCase("subjects")) {
-			if (element.startsWith("http"))
-				element = "<" + element + ">";
-			queryString = queryString + element + " ?element1 ?element2 .";
-		} else if (rol.equalsIgnoreCase("predicate") || rol.equalsIgnoreCase("p") || rol.equalsIgnoreCase("predicates")) {
-			if (element.startsWith("http"))
-				element = "<" + element + ">";
-			queryString = queryString + "?element1 " + element + " ?element2 .";
-		} else if (rol.equalsIgnoreCase("object") || rol.equalsIgnoreCase("o") || rol.equalsIgnoreCase("objects")) {
-			if (element.startsWith("http"))
-				element = "<" + element + ">";
-			queryString = queryString + "?element1 ?element2 " + element + " .";
+			return QueryRol.S;
 		}
-		queryString = queryString + "}";
+		else if (rol.equalsIgnoreCase("predicate") || rol.equalsIgnoreCase("p") || rol.equalsIgnoreCase("predicates")) {
+			return QueryRol.P;
+		}
+		else if (rol.equalsIgnoreCase("object") || rol.equalsIgnoreCase("o") || rol.equalsIgnoreCase("objects")) {
+			return QueryRol.O;
+		}
+		else if (rol.equalsIgnoreCase("SP") || rol.equalsIgnoreCase("subjectpredicate")){
+			return QueryRol.SP;
+		}
+		else if (rol.equalsIgnoreCase("SO") || rol.equalsIgnoreCase("subjectobject")){
+			return QueryRol.SO;
+		}
+		else if (rol.equalsIgnoreCase("PO") || rol.equalsIgnoreCase("predicateobject")){
+			return QueryRol.PO;
+		}
+		else if (rol.equalsIgnoreCase("SPO") || rol.equalsIgnoreCase("subjectpredicateobject")){
+			return QueryRol.SPO;
+		}
+		else return QueryRol.ALL;
+	}
+
+	public static final String createLookupQuery(String queryType, String term) {
+		String[] terms={term};
+		return createLookupQuery(queryType,terms);
+	}
+	public static final String createLookupQuery(String queryType, String[] terms) {
+		QueryRol qtype = getQueryRol(queryType);
+		String subject, predicate, object;
+		String queryString="";
+		if (qtype==QueryRol.S){
+			subject = terms[0];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			queryString = "SELECT ?element1 ?element2 WHERE { "+ subject +" ?element1 ?element2 . }";
+		}
+		else if (qtype==QueryRol.P){
+			predicate = terms[0];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 ?element2 WHERE { ?element1 "+ predicate+" ?element2 . }";
+		}
+		else if (qtype==QueryRol.O){
+			object = terms[0];
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?element2 WHERE { ?element1 ?element2 "+ object+" . }";
+		}
+		else if (qtype==QueryRol.SP){
+			subject = terms[0];
+			predicate = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 WHERE { "+ subject +" "+predicate+" ?element1 . }";
+		}
+		else if (qtype==QueryRol.SO){
+			subject = terms[0];
+			object = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 WHERE { "+ subject +" ?element1 "+object+" . }";
+		}
+		else if (qtype==QueryRol.PO){
+			predicate = terms[0];
+			object = terms[1];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 WHERE { ?element1 "+predicate+ " " +object+" . }";
+		}
+		else if (qtype==QueryRol.SPO){
+			subject = terms[0];
+			predicate = terms[1];
+			object = terms[2];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "ASK WHERE { "+subject+" "+predicate+ " " +object+" . }";
+		}
+		else{ //if (qtype==QueryRol.ALL){
+		
+			queryString = "SELECT * WHERE { ?element1 ?element2 ?element3 . }";
+		}
+		
 
 		return queryString;
 	}
@@ -54,7 +133,85 @@ public final class QueryUtils {
 		return queryString;
 	}
 
-	public static final String createLookupQueryAnnotatedGraph(final String rol, String element, String metadataVersions) {
+	public static final String createLookupQueryAnnotatedGraph(String queryType, String term, String metadataVersions) {
+		String[] terms={term};
+		return createLookupQueryAnnotatedGraph(queryType,terms,metadataVersions);
+	}
+	
+	public static final String createLookupQueryAnnotatedGraph(String queryType, String[] terms, String metadataVersions) {
+		String queryString = "";
+		QueryRol qtype = getQueryRol(queryType);
+		String subject, predicate, object;
+		
+		String graphWHERE= "GRAPH <http://example.org/versions> {?graph " + metadataVersions + " ?version . }\n";
+		
+		if (qtype==QueryRol.S){
+			subject = terms[0];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			queryString = "SELECT ?element1 ?element2 ?version WHERE { "+ graphWHERE + "GRAPH ?graph{ "+subject+" ?element1 ?element2 ."+"} }";
+		}
+		else if (qtype==QueryRol.P){
+			predicate = terms[0];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 ?element2 ?version WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 "+predicate+" ?element2 ."+"} }";
+		}
+		else if (qtype==QueryRol.O){
+			object = terms[0];
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?element2 ?version WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 ?element2 "+object+"."+"} }";
+		}
+		else if (qtype==QueryRol.SP){
+			subject = terms[0];
+			predicate = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 ?version WHERE { "+ graphWHERE + "GRAPH ?graph{ "+subject+" "+predicate+" ?element1 ."+"} }";
+		}
+		else if (qtype==QueryRol.SO){
+			subject = terms[0];
+			object = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?version WHERE { "+ graphWHERE + "GRAPH ?graph{ "+subject+" ?element1 "+object+" ."+"} }";
+		}
+		else if (qtype==QueryRol.PO){
+			predicate = terms[0];
+			object = terms[1];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?version WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 "+predicate+" "+object+" ."+"} }";
+		}
+		else if (qtype==QueryRol.SPO){
+			subject = terms[0];
+			predicate = terms[1];
+			object = terms[2];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?version WHERE { "+graphWHERE + "GRAPH ?graph{ "+subject+" "+predicate+" "+object+" ."+"} }";
+		}
+		else{ //if (qtype==QueryRol.ALL){
+		
+			queryString = "SELECT * WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 ?element2 ?element3 . } }";
+		}
+		
+
+		return queryString;
+	}
+	/*
+	public static final String createLookupQueryAnnotatedGraph2(final String rol, String element, String metadataVersions) {
 		String queryString = "";
 
 		queryString = "SELECT ?element1 ?element2 ?version WHERE { " + "GRAPH <http://example.org/versions> {?graph " + metadataVersions
@@ -80,9 +237,88 @@ public final class QueryUtils {
 
 		// System.out.println("Query is:"+queryString);
 		return queryString;
-	}
+	}*/
 
-	public static final String createLookupQueryAnnotatedGraph(final String rol, String element, int staticVersionQuery, String metadataVersions) {
+	public static final String createLookupQueryAnnotatedGraph(final String queryType, String term, int staticVersionQuery, String metadataVersions) {
+		String[] terms={term};
+		return createLookupQueryAnnotatedGraph(queryType,terms,staticVersionQuery,metadataVersions);
+	}
+	
+	public static final String createLookupQueryAnnotatedGraph(final String queryType, String[] terms, int staticVersionQuery, String metadataVersions) {
+		String queryString = "";
+		QueryRol qtype = getQueryRol(queryType);
+		String subject, predicate, object;
+		
+		String graphWHERE= "GRAPH <http://example.org/versions> {?graph " + metadataVersions + " "
+				+ staticVersionQuery + " . }\n";
+		
+		if (qtype==QueryRol.S){
+			subject = terms[0];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			queryString = "SELECT ?element1 ?element2 ?graph WHERE { "+ graphWHERE + "GRAPH ?graph{ "+subject+" ?element1 ?element2 ."+"} }";
+		}
+		else if (qtype==QueryRol.P){
+			predicate = terms[0];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 ?element2 ?graph WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 "+predicate+" ?element2 ."+"} }";
+		}
+		else if (qtype==QueryRol.O){
+			object = terms[0];
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?element2 ?graph WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 ?element2 "+object+"."+"} }";
+		}
+		else if (qtype==QueryRol.SP){
+			subject = terms[0];
+			predicate = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 ?graph WHERE { "+ graphWHERE + "GRAPH ?graph{ "+subject+" "+predicate+" ?element1 ."+"} }";
+		}
+		else if (qtype==QueryRol.SO){
+			subject = terms[0];
+			object = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?graph WHERE { "+ graphWHERE + "GRAPH ?graph{ "+subject+" ?element1 "+object+" ."+"} }";
+		}
+		else if (qtype==QueryRol.PO){
+			predicate = terms[0];
+			object = terms[1];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?graph WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 "+predicate+" "+object+" ."+"} }";
+		}
+		else if (qtype==QueryRol.SPO){
+			subject = terms[0];
+			predicate = terms[1];
+			object = terms[2];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "ASK WHERE { "+graphWHERE + "GRAPH ?graph{ "+subject+" "+predicate+" "+object+" ."+"} }";
+		}
+		else{ //if (qtype==QueryRol.ALL){
+		
+			queryString = "SELECT * WHERE { "+ graphWHERE + "GRAPH ?graph{ ?element1 ?element2 ?element3 . } }";
+		}
+		
+
+		return queryString;
+	}
+	/*
+	public static final String createLookupQueryAnnotatedGraph2(final String rol, String element, int staticVersionQuery, String metadataVersions) {
 		String queryString = "";
 
 		queryString = "SELECT ?element1 ?element2 ?graph WHERE { " + "GRAPH <http://example.org/versions> {?graph " + metadataVersions + " "
@@ -106,9 +342,9 @@ public final class QueryUtils {
 
 		queryString = queryString + "}" + "}";
 
-		// System.out.println("Query is:"+queryString);
+		 //System.out.println("Query is:"+queryString);
 		return queryString;
-	}
+	}*/
 	public static final String createLookupQueryAnnotatedGraph(String TP, int staticVersionQuery, String metadataVersions) {
 		String queryString = "";
 
@@ -176,7 +412,8 @@ public final class QueryUtils {
 				Resource rs = (Resource) soln.get(var);
 				rowResult += "<" + rs.getURI() + "> ";
 			} else {
-				rowResult += soln.getLiteral(var).asLiteral().getValue() + " ";
+				//rowResult += soln.getLiteral(var).asLiteral().getValue() + " ";
+				rowResult += soln.getLiteral(var).getString();
 			}
 		}
 		return rowResult.trim();
@@ -198,7 +435,8 @@ public final class QueryUtils {
 					Resource rs = (Resource) soln.get(var);
 					rowResult += "<" + rs.getURI() + "> ";
 				} else {
-					rowResult += soln.getLiteral(var).asLiteral().getValue() + " ";
+					//rowResult += soln.getLiteral(var).asLiteral().getValue() + " ";
+					rowResult += soln.getLiteral(var).getString();
 				}
 			}
 		}
