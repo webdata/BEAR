@@ -4,11 +4,7 @@ Please compile and execute the tools with the HDT-C++ library: https://github.co
 
 # Run Queries
 
- - java  -cp target/tdbQuery-0.6-jar-with-dependencies.jar org.ai.wu.ac.at.tdbArchive.tools.JenaTDBArchive_query
- 
-Please consider to increase the Java heap with the flag *-XmxSIZE*, e.g. "java *-Xmx64G* -cp ..." to use a maximum of 64GB RAM memory.
-
-## Usage:
+ - Run each tool with the following arguments:
 
 | Argument      | Result      |
 | ------------- |-------------|
