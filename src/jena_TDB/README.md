@@ -8,7 +8,7 @@ This will create a jar (target/tdbQuery-0.6-jar-with-dependencies.jar) with all 
  
 Please consider to increase the Java heap with the flag *-XmxSIZE*, e.g. "java *-Xmx64G* -cp ..." to use a maximum of 64GB RAM memory.
 
-##Usage:
+## Usage:
 
 | Argument      | Result       |
 | ------------- |-------------|
