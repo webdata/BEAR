@@ -14,6 +14,7 @@ using namespace hdt;
 void help() {
 	cout << "$ versionQuery [options] <hdtfile> " << endl;
 	cout << "\t-h\t\t\tThis help" << endl;
+	cout << "\t-d\t<dir>\t\tdirectory with the HDT versions" << endl;
 	cout << "\t-i\t<query>\t\tLaunch query and exit." << endl;
 	//cout << "\t-o\t<output>\tSave query output to file." << endl;
 	cout << "\t-t\t<type>\t\ttype of query [s, p, o]." << endl;
@@ -21,16 +22,33 @@ void help() {
 	cout << "\t-l\t<number>\t\tlimit upt to <number> of versions" << endl;
 	//cout << "\t-v\tVerbose output" << endl;
 }
-
+vector<string> split(const string& str, const string& delim) {
+	vector<string> tokens;
+	size_t prev = 0, pos = 0;
+	do {
+		pos = str.find(delim, prev);
+		if (pos == string::npos)
+			pos = str.length();
+		string token = str.substr(prev, pos - prev);
+		if (!token.empty())
+			tokens.push_back(token);
+		prev = pos + delim.length();
+	} while (pos < str.length() && prev < str.length());
+	return tokens;
+}
 int main(int argc, char *argv[]) {
 
 	int c;
 	string inputFile, outputFile, limit;
 	string type = "null";
-	while ((c = getopt(argc, argv, "hi:t:l:o:")) != -1) {
+	string dir = "data/hdt/";
+	while ((c = getopt(argc, argv, "hi:t:l:o:d:")) != -1) {
 		switch (c) {
 		case 'h':
 			help();
+			break;
+		case 'd':
+			dir = optarg;
 			break;
 		case 'i':
 			inputFile = optarg;
@@ -73,7 +91,7 @@ int main(int argc, char *argv[]) {
 
 	for (int i = 0; i < numVersions; i++) {
 		std::stringstream sstm;
-		sstm << "data/hdt/" << (i + 1) << ".hdt";
+		sstm << dir << (i + 1) << ".hdt";
 		cout << "Loading " << sstm.str() << endl;
 		HDTversions.push_back(
 				HDTManager::mapIndexedHDT((char*) sstm.str().c_str()));
@@ -125,7 +143,7 @@ int main(int argc, char *argv[]) {
 		throw "unable to open filter file";
 	string linea = "";
 
-	double totalTime=0;
+	double totalTime = 0;
 	int num_queries = 0;
 	while (!file.eof()) {
 		getline(file, linea);
@@ -144,6 +162,22 @@ int main(int argc, char *argv[]) {
 				predicate = query;
 			} else if (type == "o") {
 				object = query;
+			} else {
+				vector<string> elements = split(linea, " ");
+				if (type == "sp") {
+					subject = elements[0];
+					predicate = elements[1];
+				} else if (type == "so") {
+					subject = elements[0];
+					object = elements[1];
+				} else if (type == "po") {
+					predicate = elements[0];
+					object = elements[1];
+				} else if (type == "spo") {
+					subject = elements[0];
+					predicate = elements[1];
+					object = elements[2];
+				}
 			}
 
 			StopWatch st;
@@ -163,15 +197,14 @@ int main(int argc, char *argv[]) {
 
 			}
 			double time = st.toMillis();
-			totalTime+=time;
+			totalTime += time;
 			cout << numResults << " results in " << time << " ms" << endl;
 			num_queries++;
 		}
 	}
 	//compute mean of queries
-	*out << "<Queries>,<mean_time>" << endl;
-	*out << num_queries<<"," << totalTime/ num_queries << endl;
-
+	*out << "<Queries>,<mean_time>,<total>" << endl;
+	*out << num_queries << "," << totalTime / num_queries <<","<<totalTime<< endl;
 
 	for (int i = 0; i < numVersions; i++) {
 		delete HDTversions[i]; // Remember to delete instance when no longer needed!

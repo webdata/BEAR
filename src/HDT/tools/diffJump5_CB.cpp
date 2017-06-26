@@ -24,7 +24,20 @@ void help() {
 	cout << "\t-l\t<number>\t\tlimit upt to <number> of versions" << endl;
 	//cout << "\t-v\tVerbose output" << endl;
 }
-
+vector<string> split(const string& str, const string& delim) {
+	vector<string> tokens;
+	size_t prev = 0, pos = 0;
+	do {
+		pos = str.find(delim, prev);
+		if (pos == string::npos)
+			pos = str.length();
+		string token = str.substr(prev, pos - prev);
+		if (!token.empty())
+			tokens.push_back(token);
+		prev = pos + delim.length();
+	} while (pos < str.length() && prev < str.length());
+	return tokens;
+}
 int main(int argc, char *argv[]) {
 
 	int c;
@@ -94,7 +107,8 @@ int main(int argc, char *argv[]) {
 		sstm << dir << i << ".del.hdt";
 		cout << "Loading " << sstm.str() << endl;
 		//FIXME patch error on empty HDTs
-		if (i == 0 || i == 30) {
+		//if (i == 0 || i == 30) {
+		if (i == 0) {
 			HDTversions_del.push_back(NULL);
 		} else {
 			HDTversions_del.push_back(
@@ -124,7 +138,8 @@ int main(int argc, char *argv[]) {
 	}
 	for (int i = 0; i < numVersions; i++) {
 		//FIXME patch error on empty HDTs
-		if (i != 0 && i != 30) {
+		//if (i != 0 && i != 30) {
+		if (i != 0) {
 			HDTversions_del.push_back(NULL);
 
 			// Enumerate all different predicates
@@ -179,6 +194,22 @@ int main(int argc, char *argv[]) {
 				predicate = query;
 			} else if (type == "o") {
 				object = query;
+			} else {
+				vector<string> elements = split(linea, " ");
+				if (type == "sp") {
+					subject = elements[0];
+					predicate = elements[1];
+				} else if (type == "so") {
+					subject = elements[0];
+					object = elements[1];
+				} else if (type == "po") {
+					predicate = elements[0];
+					object = elements[1];
+				} else if (type == "spo") {
+					subject = elements[0];
+					predicate = elements[1];
+					object = elements[2];
+				}
 			}
 
 			int jump = 5;
@@ -213,7 +244,8 @@ int main(int argc, char *argv[]) {
 					}
 					delete it_add;
 					//FIXME patch error on empty HDTs
-					if (j != 0 && j != 30) {
+					//if (j != 0 && j != 30) {
+					if (j != 0) {
 						IteratorTripleString* it_del =
 								HDTversions_del[j]->search(subject.c_str(),
 										predicate.c_str(), object.c_str());
@@ -260,15 +292,16 @@ int main(int argc, char *argv[]) {
 	cout << "compute mean of queries" << endl;
 	fflush(stdout);
 	//compute mean of queries
-	*out << "<version>,<mean_time>" << endl;
+	*out << "<version>,<mean_time>,<total>" << endl;
 	for (int i = 0; i < numVersions; i++) {
-		*out << (i + 1) << "," << times[i] / num_queries << endl;
+		*out << (i + 1) << "," << times[i] / num_queries <<","<<times[i] << endl;
 	}
 
 	for (int i = 0; i < numVersions; i++) {
 		delete HDTversions_add[i]; // Remember to delete instance when no longer needed!
 		//FIXME patch error on empty HDTs
-		if (i != 0 && i != 30) {
+		//if (i != 0 && i != 30) {
+		if (i != 0) {
 			delete HDTversions_del[i]; // Remember to delete instance when no longer needed!
 		}
 	}

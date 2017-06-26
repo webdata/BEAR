@@ -16,6 +16,7 @@ using namespace hdt;
 void help() {
 	cout << "$ matVersion_CB [options] <hdtfile> " << endl;
 	cout << "\t-h\t\t\tThis help" << endl;
+	cout << "\t-d\t<dir>\t\tdirectory with the HDT versions" << endl;
 	cout << "\t-i\t<query>\t\tLaunch query and exit." << endl;
 	//cout << "\t-o\t<output>\tSave query output to file." << endl;
 	cout << "\t-t\t<type>\t\ttype of query [s, p, o]." << endl;
@@ -23,10 +24,22 @@ void help() {
 	cout << "\t-l\t<number>\t\tlimit upt to <number> of versions" << endl;
 	//cout << "\t-v\tVerbose output" << endl;
 }
-
-int verQuery(int numVersions,
-		const vector<HDT*>& HDTversions_add, const string& subject,
-		const string& predicate, const string& object,
+vector<string> split(const string& str, const string& delim) {
+	vector<string> tokens;
+	size_t prev = 0, pos = 0;
+	do {
+		pos = str.find(delim, prev);
+		if (pos == string::npos)
+			pos = str.length();
+		string token = str.substr(prev, pos - prev);
+		if (!token.empty())
+			tokens.push_back(token);
+		prev = pos + delim.length();
+	} while (pos < str.length() && prev < str.length());
+	return tokens;
+}
+int verQuery(int numVersions, const vector<HDT*>& HDTversions_add,
+		const string& subject, const string& predicate, const string& object,
 		const vector<HDT*>& HDTversions_del) {
 	set<string> results;
 	//this should be in parallel but we do it sequential because is very fast so far
@@ -50,7 +63,8 @@ int verQuery(int numVersions,
 		delete it_add;
 		//cout << "search del in i=" << i << endl;
 		//FIXME patch error on empty HDTs
-		if (i != 0 && i != 30) {
+		//if (i != 0 && i != 30) {
+		if (i != 0) {
 			IteratorTripleString* it_del = HDTversions_del[i]->search(
 					subject.c_str(), predicate.c_str(), object.c_str());
 
@@ -68,13 +82,12 @@ int verQuery(int numVersions,
 		}
 
 		//iterate to show the results at version i
-		for (std::set<string>::iterator it = results.begin(); it != results.end();
-					++it) {
-				numResults++;
-			}
+		for (std::set<string>::iterator it = results.begin();
+				it != results.end(); ++it) {
+			numResults++;
+		}
 		//cout << numResults << " results after deletion" << endl;
 	}
-
 
 	return numResults;
 }
@@ -84,10 +97,14 @@ int main(int argc, char *argv[]) {
 	int c;
 	string inputFile, outputFile, limit;
 	string type = "null";
-	while ((c = getopt(argc, argv, "hi:t:l:o:")) != -1) {
+	string dir = "data/diffPolicyHDT/";
+	while ((c = getopt(argc, argv, "hi:t:l:o:d:")) != -1) {
 		switch (c) {
 		case 'h':
 			help();
+			break;
+		case 'd':
+			dir = optarg;
 			break;
 		case 'i':
 			inputFile = optarg;
@@ -131,7 +148,7 @@ int main(int argc, char *argv[]) {
 
 	for (int i = 0; i < numVersions; i++) {
 		std::stringstream sstm;
-		sstm << "data/diffPolicyHDT/" << i << ".add.hdt";
+		sstm << dir << i << ".add.hdt";
 		cout << "Loading " << sstm.str() << endl;
 		HDTversions_add.push_back(
 				HDTManager::mapIndexedHDT((char*) sstm.str().c_str()));
@@ -141,10 +158,11 @@ int main(int argc, char *argv[]) {
 	}
 	for (int i = 0; i < numVersions; i++) {
 		std::stringstream sstm;
-		sstm << "data/diffPolicyHDT/" << i << ".del.hdt";
+		sstm << dir << i << ".del.hdt";
 		cout << "Loading " << sstm.str() << endl;
 		//FIXME patch error on empty HDTs
-		if (i == 0 || i == 30) {
+		//if (i == 0 || i == 30) {
+		if (i == 0) {
 			HDTversions_del.push_back(NULL);
 		} else {
 			HDTversions_del.push_back(
@@ -174,7 +192,8 @@ int main(int argc, char *argv[]) {
 	}
 	for (int i = 0; i < numVersions; i++) {
 		//FIXME patch error on empty HDTs
-		if (i != 0 && i != 30) {
+		//if (i != 0 && i != 30) {
+		if (i != 0) {
 			HDTversions_del.push_back(NULL);
 
 			// Enumerate all different predicates
@@ -229,12 +248,28 @@ int main(int argc, char *argv[]) {
 				predicate = query;
 			} else if (type == "o") {
 				object = query;
+			} else {
+				vector<string> elements = split(linea, " ");
+				if (type == "sp") {
+					subject = elements[0];
+					predicate = elements[1];
+				} else if (type == "so") {
+					subject = elements[0];
+					object = elements[1];
+				} else if (type == "po") {
+					predicate = elements[0];
+					object = elements[1];
+				} else if (type == "spo") {
+					subject = elements[0];
+					predicate = elements[1];
+					object = elements[2];
+				}
 			}
-			int numResults=0;
+			int numResults = 0;
 			StopWatch st;
 
-			 numResults += verQuery(numVersions, HDTversions_add,
-					subject, predicate, object, HDTversions_del);
+			numResults += verQuery(numVersions, HDTversions_add, subject,
+					predicate, object, HDTversions_del);
 
 			double time = st.toMillis();
 			cout << numResults << " results in " << time << " ms" << endl;
@@ -245,13 +280,14 @@ int main(int argc, char *argv[]) {
 
 	}
 	//compute mean of queries
-	*out << "<Queries>,<mean_time>" << endl;
-	*out << num_queries<<"," << totalTime/ num_queries << endl;
+	*out << "<Queries>,<mean_time>,<total>" << endl;
+	*out << num_queries << "," << totalTime / num_queries<<","<<totalTime<< endl;
 
 	for (int i = 0; i < numVersions; i++) {
 		delete HDTversions_add[i]; // Remember to delete instance when no longer needed!
 		//FIXME patch error on empty HDTs
-		if (i != 0 && i != 30) {
+		//if (i != 0 && i != 30) {
+		if (i != 0) {
 			delete HDTversions_del[i]; // Remember to delete instance when no longer needed!
 		}
 	}

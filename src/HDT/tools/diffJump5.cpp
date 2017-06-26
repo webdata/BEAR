@@ -22,6 +22,20 @@ void help() {
 	cout << "\t-l\t<number>\t\tlimit upt to <number> of versions" << endl;
 	//cout << "\t-v\tVerbose output" << endl;
 }
+vector<string> split(const string& str, const string& delim) {
+	vector<string> tokens;
+	size_t prev = 0, pos = 0;
+	do {
+		pos = str.find(delim, prev);
+		if (pos == string::npos)
+			pos = str.length();
+		string token = str.substr(prev, pos - prev);
+		if (!token.empty())
+			tokens.push_back(token);
+		prev = pos + delim.length();
+	} while (pos < str.length() && prev < str.length());
+	return tokens;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -149,6 +163,22 @@ int main(int argc, char *argv[]) {
 				predicate = query;
 			} else if (type == "o") {
 				object = query;
+			} else {
+				vector<string> elements = split(linea, " ");
+				if (type == "sp") {
+					subject = elements[0];
+					predicate = elements[1];
+				} else if (type == "so") {
+					subject = elements[0];
+					object = elements[1];
+				} else if (type == "po") {
+					predicate = elements[0];
+					object = elements[1];
+				} else if (type == "spo") {
+					subject = elements[0];
+					predicate = elements[1];
+					object = elements[2];
+				}
 			}
 			int jump = 5;
 			int totalIterations = ((numVersions - 1) / jump) + 1; //-1 because we start in 0
@@ -224,9 +254,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	//compute mean of queries
-	*out << "<version>,<mean_time>" << endl;
+	*out << "<version>,<mean_time>,<total>" << endl;
 	for (int i = 0; i < numVersions; i++) {
-		*out << (i + 1) << "," << times[i] / num_queries << endl;
+		*out << (i + 1) << "," << times[i] / num_queries <<","<<times[i] << endl;
 	}
 
 	for (int i = 0; i < numVersions; i++) {
