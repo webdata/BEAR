@@ -113,23 +113,77 @@ public final class QueryUtils {
 		return queryString;
 	}
 
-	public static final String createLookupQueryGraph(final String rol, String element) {
-		String queryString = "SELECT ?element1 ?element2 ?graph WHERE { " + "GRAPH ?graph{";
-		if (rol.equalsIgnoreCase("subject") || rol.equalsIgnoreCase("s") || rol.equalsIgnoreCase("subjects")) {
-			if (element.startsWith("http"))
-				element = "<" + element + ">";
-			queryString = queryString + element + " ?element1 ?element2 .";
-		} else if (rol.equalsIgnoreCase("predicate") || rol.equalsIgnoreCase("p") || rol.equalsIgnoreCase("predicates")) {
-			if (element.startsWith("http"))
-				element = "<" + element + ">";
-			queryString = queryString + "?element1 " + element + " ?element2 .";
-		} else if (rol.equalsIgnoreCase("object") || rol.equalsIgnoreCase("o") || rol.equalsIgnoreCase("objects")) {
-			if (element.startsWith("http"))
-				element = "<" + element + ">";
-			queryString = queryString + "?element1 ?element2 " + element + " .";
+	public static final String createLookupQueryGraph(String queryType, String term) {
+		String[] terms={term};
+		return createLookupQueryGraph(queryType,terms);
+	}
+	
+	public static final String createLookupQueryGraph(final String queryType, String[] terms) {
+		QueryRol qtype = getQueryRol(queryType);
+		String subject, predicate, object;
+		String queryString="";
+			
+		if (qtype==QueryRol.S){
+			subject = terms[0];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			queryString = "SELECT ?element1 ?element2 ?graph WHERE { GRAPH ?graph{ "+ subject +" ?element1 ?element2 . } }";
 		}
-		queryString = queryString + "}" + "}";
-
+		else if (qtype==QueryRol.P){
+			predicate = terms[0];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 ?element2 ?graph WHERE { GRAPH ?graph{ ?element1 "+ predicate +" ?element2 . } }";
+		}
+		else if (qtype==QueryRol.O){
+			object = terms[0];
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?element2 ?graph WHERE { GRAPH ?graph{ ?element1 ?element2 "+ object +" . } }";
+		}
+		else if (qtype==QueryRol.SP){
+			subject = terms[0];
+			predicate = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			queryString = "SELECT ?element1 ?graph WHERE { GRAPH ?graph{ "+ subject +" "+predicate+" ?element1 . }}";
+		}
+		else if (qtype==QueryRol.SO){
+			subject = terms[0];
+			object = terms[1];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?graph WHERE { GRAPH ?graph{ "+ subject +" ?element1 "+object+" . }}";
+		}
+		else if (qtype==QueryRol.PO){
+			predicate = terms[0];
+			object = terms[1];
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?element1 ?graph WHERE { GRAPH ?graph{ ?element1 "+predicate+ " " +object+" . }}";
+		}
+		else if (qtype==QueryRol.SPO){
+			subject = terms[0];
+			predicate = terms[1];
+			object = terms[2];
+			if (subject.startsWith("http"))
+				subject = "<" + subject + ">";
+			if (predicate.startsWith("http"))
+				predicate = "<" + predicate + ">";
+			if (object.startsWith("http"))
+				object = "<" + object + ">";
+			queryString = "SELECT ?graph WHERE { GRAPH ?graph{"+subject+" "+predicate+ " " +object+" . }}";
+		}
+		else{ //if (qtype==QueryRol.ALL){
+		
+			queryString = "SELECT * WHERE { GRAPH ?graph{ ?element1 ?element2 ?element3 . }}";
+		}
 		return queryString;
 	}
 

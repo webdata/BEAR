@@ -75,15 +75,26 @@ public class AnalyseRes {
 			String line = s.nextLine();
 					
 			String[] uri = line.trim().split(" ");
-//			System.out.println(uri[0]);
-			if(uri.length==2 && uri[0]==numVersions ){ //present in all versions (uri[0]==58)
-				
+//			System.out.println("|"+uri[0]+"|"+numVersions+"|"+(uri[0]==numVersions)+(uri[0].equalsIgnoreCase(numVersions)) );
+//			System.out.println("|"+uri[1]+"|");
+//			System.out.println("|"+uri.length+"|"+(uri.length==2));
+//			System.out.println("|"+numVersions+"|");
+			
+			if(uri.length>=2 && uri[0].equalsIgnoreCase(numVersions) ){ //present in all versions (uri[0]==58)
 				System.out.println(uri[0]+" "+uri[1]);
-				
-				String query = QueryUtils.createLookupQuery(type, uri[1]);
+				String[] TPquery = {"","",""};
+				TPquery[0] = uri[1];
+				if (uri.length>2){
+					TPquery[1]=uri[2];
+				}
+				if (uri.length>3){
+					TPquery[2]=uri[3];
+				}
+				String query = QueryUtils.createLookupQuery(type, TPquery);
 				Map<Integer,ArrayList<String>> solutions = new HashMap<Integer, ArrayList<String>>();
 				for (int i=0;i<Integer.parseInt(numVersions);i++){
 					ArrayList<String> solution = jenaArchive.matQuery(i, query);
+					System.out.println(" Solutions for version "+i+":"+solution.size());
 					solutions.put(i, solution);
 				}
 				
@@ -111,7 +122,7 @@ public class AnalyseRes {
 		
 		_cardStats.addValue(solutions.get(0).size());
 		TreeMap<Integer, Double>_dyn= new TreeMap<Integer, Double>();
-		for(int i=0; i<solutions.size(); i++){
+		for(int i=0; i<solutions.size()-1; i++){
 			_cardStats.addValue(solutions.get(i+1).size());
 			
 			ArrayList<String> a = solutions.get(i);
@@ -153,7 +164,7 @@ public class AnalyseRes {
 		PrintWriter pw = new PrintWriter(new File(dir, URLEncoder.encode(uri.replaceAll("<", "").replaceAll(">", ""))+".stats"));
 		pw.println("1 "+solutions.get(1).size()+" 0.0");
 		
-		for(int i=1; i<solutions.size(); i++){
+		for(int i=1; i<solutions.size()-1; i++){
 			pw.println(i+" "+solutions.get(i+1).size()+" "+_dyn.get(i+1));
 		}
 		pw.close();

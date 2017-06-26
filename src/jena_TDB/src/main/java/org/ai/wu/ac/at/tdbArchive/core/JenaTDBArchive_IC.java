@@ -325,7 +325,7 @@ public class JenaTDBArchive_IC implements JenaTDBArchive {
 		return ret;
 	}
 
-	private ArrayList<String> materializeASKQuery(int version, Query query) throws InterruptedException, ExecutionException {
+	public ArrayList<String> materializeASKQuery(int version, Query query) throws InterruptedException, ExecutionException {
 
 		ArrayList<String> ret = new ArrayList<String>();
 

@@ -31,12 +31,13 @@ public class GetQueries {
 		options.addOption("e", true,"epsilon value");
 		options.addOption("o", true,"output directory");
 		options.addOption("s", true,"number of maximum URLs");
+		options.addOption("p", true,"pattern of the query");
 		
 		CommandLineParser parser = new BasicParser();
 		try {
 			CommandLine cmd = parser.parse( options, args);
 			
-			if(args.length!=8 ||cmd.hasOption("h") || cmd.hasOption("help")) help();
+			if(args.length<8 ||cmd.hasOption("h") || cmd.hasOption("help")) help();
 			return cmd;
 		} catch (ParseException e1) {
 			System.err.println( "Parsing failed.  Reason: " + e1.getMessage() );
@@ -62,6 +63,10 @@ public class GetQueries {
 				
 		String input = cmd.getOptionValue("i");
 		String output = cmd.getOptionValue("o");
+		String pattern = "any";
+		if (cmd.hasOption("p")){
+			pattern = cmd.getOptionValue("p");
+		}
 		Double e = Double.valueOf(cmd.getOptionValue("e"));
 		noOfURIs = Integer.valueOf(cmd.getOptionValue("s"));
 	
@@ -73,11 +78,33 @@ public class GetQueries {
 		while(s.hasNextLine()){
 			String line = s.nextLine();
 			String [] t = line.trim().split(" ");
-			if(t.length!=9) continue;
+			System.out.println("line:"+line);
+			if(t.length<9) continue;
 			
-			Double min = Double.valueOf(t[1]);
-			Double mean = Double.valueOf(t[2]);
-			Double max = Double.valueOf(t[3]);
+			Double min =0.0;
+			Double mean =0.0;
+			Double max =0.0;
+			
+			if (pattern.equalsIgnoreCase("any")){
+				min = Double.valueOf(t[1]);
+				mean = Double.valueOf(t[2]);
+				max = Double.valueOf(t[3]);
+			}
+			else if (pattern.equalsIgnoreCase("sp")|| pattern.equalsIgnoreCase("so")||pattern.equalsIgnoreCase("po")){
+				// includes another element in the middle
+				min = Double.valueOf(t[2]);
+				mean = Double.valueOf(t[3]);
+				max = Double.valueOf(t[4]);
+			}
+			else if (pattern.equalsIgnoreCase("spo")){
+				// includes another element in the middle
+				min = Double.valueOf(t[3]);
+				mean = Double.valueOf(t[4]);
+				max = Double.valueOf(t[5]);
+			}
+			System.out.println("min:"+min);
+			System.out.println("mean:"+mean);
+			System.out.println("max:"+max);
 			
 			if (min == 0) continue;
 			
@@ -86,7 +113,7 @@ public class GetQueries {
 			
 			if( (min >= tmin) && (max <= tmax)){
 				
-				int [] a = {10,50,100,250,500,1000,1500,2000};
+				int [] a = {1,10,50,100,250,500,1000,1500,2000};
 				for(int i:a){
 					if(mean <= i){
 						getSet(bins,i).add(line);

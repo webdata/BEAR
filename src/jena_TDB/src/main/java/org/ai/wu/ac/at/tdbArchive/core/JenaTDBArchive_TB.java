@@ -100,6 +100,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 		 */
 
 		String queryGraphs = QueryUtils.getNumGraphVersions(metadataVersions);
+		//System.out.println("queryGraphs:"+queryGraphs);
 		Query query = QueryFactory.create(queryGraphs);
 		QueryExecution qexec = QueryExecutionFactory.create(query, dataset);
 		ResultSet results = qexec.execSelect();
@@ -109,7 +110,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 			// System.out.println("numVersions:" + numVersions);
 			TOTALVERSIONS = Integer.parseInt(numVersions);
 		}
-		// System.out.println("TOTALVERSIONS:" + TOTALVERSIONS);
+		 //System.out.println("TOTALVERSIONS:" + TOTALVERSIONS);
 	}
 
 	/**
