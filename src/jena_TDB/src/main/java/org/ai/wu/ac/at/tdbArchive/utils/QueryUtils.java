@@ -612,7 +612,6 @@ public final class QueryUtils {
 			if (object2.startsWith("http"))
 				object2 = "<" + object2 + ">";
 		}
-		System.out.println("join is:"+join);
 		
 		Boolean askQuery=false;
 		if (join.equalsIgnoreCase("ss")){
@@ -716,7 +715,6 @@ public final class QueryUtils {
 			if (object2.startsWith("http"))
 				object2 = "<" + object2 + ">";
 		}
-		System.out.println("join is:"+join);
 		
 		
 		if (join.equalsIgnoreCase("ss")){
@@ -780,11 +778,14 @@ public final class QueryUtils {
 		
 		int numTerms=0;
 		if ((qtype1==QueryRol.S)||(qtype1==QueryRol.SP)||(qtype1==QueryRol.SO)||(qtype1==QueryRol.SPO)){
+			
 			output.remove(subject1);
 			subject1 = terms[0];
 			numTerms++;
 			if (subject1.startsWith("http"))
 				subject1 = "<" + subject1 + ">";
+			else if (subject1.startsWith("?"))
+				output.add(subject1);
 		}
 		if (qtype1==QueryRol.P||qtype1==QueryRol.PO){
 			output.remove(predicate1);
@@ -792,6 +793,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (predicate1.startsWith("http"))
 				predicate1 = "<" + predicate1 + ">";
+			else if (predicate1.startsWith("?"))
+				output.add(predicate1);
 		}
 		if (qtype1==QueryRol.SP || qtype1==QueryRol.SPO ){
 			output.remove(predicate1);
@@ -799,6 +802,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (predicate1.startsWith("http"))
 				predicate1 = "<" + predicate1 + ">";
+			else if (predicate1.startsWith("?"))
+				output.add(predicate1);
 		}
 		if (qtype1==QueryRol.O){
 			output.remove(object1);
@@ -806,6 +811,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (object1.startsWith("http"))
 				object1 = "<" + object1 + ">";
+			else if (object1.startsWith("?"))
+				output.add(object1);
 		}
 		if (qtype1==QueryRol.SO||qtype1==QueryRol.PO){
 			output.remove(object1);
@@ -813,6 +820,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (object1.startsWith("http"))
 				object1 = "<" + object1 + ">";
+			else if (object1.startsWith("?"))
+				output.add(object1);
 		}
 		if (qtype1==QueryRol.SPO){
 			output.remove(object1);
@@ -820,6 +829,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (object1.startsWith("http"))
 				object1 = "<" + object1 + ">";
+			else if (object1.startsWith("?"))
+				output.add(object1);
 		}
 		
 /////
@@ -829,6 +840,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (subject2.startsWith("http"))
 				subject2 = "<" + subject2 + ">";
+			else if (subject2.startsWith("?"))
+				output.add(subject2);
 		}
 		if (qtype2==QueryRol.P||qtype2==QueryRol.PO){
 			output.remove(predicate2);
@@ -836,6 +849,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (predicate2.startsWith("http"))
 				predicate2 = "<" + predicate2 + ">";
+			else if (predicate2.startsWith("?"))
+				output.add(predicate2);
 		}
 		if (qtype2==QueryRol.SP || qtype2==QueryRol.SPO ){
 			output.remove(predicate2);
@@ -843,6 +858,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (predicate2.startsWith("http"))
 				predicate2 = "<" + predicate2 + ">";
+			else if (predicate2.startsWith("?"))
+				output.add(predicate2);
 		}
 		if (qtype2==QueryRol.O){
 			output.remove(object2);
@@ -850,6 +867,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (object2.startsWith("http"))
 				object2 = "<" + object2 + ">";
+			else if (object2.startsWith("?"))
+				output.add(object2);
 		}
 		if (qtype2==QueryRol.SO||qtype2==QueryRol.PO){
 			output.remove(object2);
@@ -857,6 +876,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (object2.startsWith("http"))
 				object2 = "<" + object2 + ">";
+			else if (object2.startsWith("?"))
+				output.add(object2);
 		}
 		if (qtype2==QueryRol.SPO){
 			output.remove(object2);
@@ -864,6 +885,8 @@ public final class QueryUtils {
 			numTerms++;
 			if (object2.startsWith("http"))
 				object2 = "<" + object2 + ">";
+			else if (object2.startsWith("?"))
+				output.add(object2);
 		}
 		
 		if (join.equalsIgnoreCase("ss")){

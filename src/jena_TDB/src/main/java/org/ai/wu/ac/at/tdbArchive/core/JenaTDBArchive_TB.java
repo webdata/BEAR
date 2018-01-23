@@ -819,7 +819,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 
 			String queryString = QueryUtils.createLookupQueryAnnotatedGraph(rol, parts, metadataVersions);
 
-			System.out.println("the queryString: " + queryString);
+			//System.out.println("the queryString: " + queryString);
 			Query query = QueryFactory.create(queryString);
 			long startTime = System.currentTimeMillis();
 			QueryExecution qexec = QueryExecutionFactory.create(query, dataset);
@@ -827,7 +827,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 
 			ResultSet results = qexec.execSelect();
 			while (results.hasNext()) {
-				System.out.println("SOLUTION");
+				//System.out.println("SOLUTION");
 				QuerySolution soln = results.next();
 				// assume we have a graph variable as a response
 				Literal version = (Literal) soln.get("version");
@@ -845,7 +845,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 					newSol.add(rowResult);
 					AllSolutions.put(ver, newSol);
 				}
-				System.out.println("****** RowResult: " + rowResult);
+				//System.out.println("****** RowResult: " + rowResult);
 				// System.out.println("version " + ver);
 				// + numRows);
 
@@ -968,7 +968,7 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 					postversionQuery = Math.min((index + 1) * jump, TOTALVERSIONS - 1);
 					versionQuery = 0; //assume it is always the comparison with 0
 				}
-				System.out.println("postVersionQuery is: "+postversionQuery);
+				//System.out.println("postVersionQuery is: "+postversionQuery);
 
 				String queryString = QueryUtils.createJoinQueryAnnotatedGraph(rol1, rol2, join, parts, versionQuery, postversionQuery, metadataVersions);
 				System.out.println("QueryString: "+queryString);

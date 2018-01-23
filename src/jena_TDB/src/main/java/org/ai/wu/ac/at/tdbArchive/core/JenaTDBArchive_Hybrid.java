@@ -1375,7 +1375,7 @@ public class JenaTDBArchive_Hybrid implements JenaTDBArchive {
 					postversionQuery = Math.min((index + 1) * jump, TOTALVERSIONS - 1);
 					versionQuery = 0; //assume it is always the comparison with 0
 				}
-				System.out.println("postVersionQuery is: "+postversionQuery);
+				//System.out.println("postVersionQuery is: "+postversionQuery);
 
 				Query query = QueryFactory.create(queryString);
 				long startTime = System.currentTimeMillis();
@@ -1386,16 +1386,16 @@ public class JenaTDBArchive_Hybrid implements JenaTDBArchive {
 				 ArrayList<String> finalSols=new ArrayList<String>();
 				//iterate the solutions
 				 for (String intermediateSol:intermediateSols){
-					 System.out.println("intermdiate SOL:"+intermediateSol);
+					 //System.out.println("intermdiate SOL:"+intermediateSol);
 					 String newqueryString = QueryUtils.createJoinQueryFromIntermediate(rol1, rol2, join, intermediateSol,parts);
-					 System.out.println("newqueryString SOL:"+newqueryString);
+					 System.out.println("newqueryString SOL:"+newqueryString); 
 						Query newquery = QueryFactory.create(newqueryString);
 						if (newqueryString.startsWith("ASK")){
 							ArrayList<String> sol = materializeASKQuery(postversionQuery, newquery);
-							System.out.println("SOL:"+sol);
+							//System.out.println("SOL:"+sol);
 							if (sol.size()>0){
 								if (sol.get(0).equalsIgnoreCase("true")){
-									System.out.println("adding intermediate sols");
+									//System.out.println("adding intermediate sols");
 									finalSols.add(intermediateSol);
 								}
 							}

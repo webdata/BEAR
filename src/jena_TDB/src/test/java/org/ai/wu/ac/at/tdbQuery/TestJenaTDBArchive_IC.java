@@ -470,9 +470,9 @@ public class TestJenaTDBArchive_IC {
 		ArrayList<ArrayList<Integer>> solution = jenaArchive.bulkAllChangeQuerying(queryurl.getFile(), "subject");
 
 		ArrayList<Integer>solutionFirstLine = solution.get(0);
-		for (int i:solutionFirstLine){
+		/*for (int i:solutionFirstLine){
 			System.out.println("solution: "+i);
-		}
+		}*/
 		/*
 		 * diff 0 and 1
 		 */
@@ -652,7 +652,23 @@ public class TestJenaTDBArchive_IC {
 		ArrayList<String> version0 = new ArrayList<String>();
 		version0.add("<http://example.org/uri3> <http://example.org/uri4> <http://example.org/uri6>");
 		ArrayList<String> solutionversion = solution.get(0).get(3);  
-		System.out.println("solutionversion:"+solutionversion);
+		//System.out.println("solutionversion:"+solutionversion);
+		assertTrue(version0.containsAll(solutionversion) && solutionversion.containsAll(version0));
+
+		
+	}
+	
+	@Test
+	public void testbulkAllJoinQuerying_SS_variable() throws InterruptedException, ExecutionException, FileNotFoundException, IOException {
+
+		URL queryurl = this.getClass().getResource(FileSystems.getDefault().getSeparator() + "testIC/testQueryDynamic_join_PO_variable.txt");
+		ArrayList<Map<Integer, ArrayList<String>>> solution = jenaArchive.bulkAllJoinQuerying(queryurl.getFile(), "PO","PO","ss");
+
+		ArrayList<String> version0 = new ArrayList<String>();
+		version0.add("<http://example.org/uri1> <http://example.org/uri5>");
+		version0.add("<http://example.org/uri1> <http://example.org/uri2>");
+		ArrayList<String> solutionversion = solution.get(0).get(3);
+		//System.out.println("solutionversion:"+solutionversion);
 		assertTrue(version0.containsAll(solutionversion) && solutionversion.containsAll(version0));
 
 		
