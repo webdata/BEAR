@@ -925,7 +925,81 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 
 	public ArrayList<Map<Integer, ArrayList<String>>> bulkAllJoinQuerying(String queryFile, String rol1, String rol2, String join)
 			throws FileNotFoundException, IOException, InterruptedException, ExecutionException {
-		// TODO Auto-generated method stub
-		return null;
+		ArrayList<Map<Integer, ArrayList<String>>> ret = new ArrayList<Map<Integer, ArrayList<String>>>();
+		File inputFile = new File(queryFile);
+		BufferedReader br = new BufferedReader(new FileReader(inputFile));
+		String line = "";
+
+		TreeMap<Integer, DescriptiveStatistics> vStats = new TreeMap<Integer, DescriptiveStatistics>();
+		for (int i = 0; i < TOTALVERSIONS; i++) {
+			vStats.put(i, new DescriptiveStatistics());
+		}
+
+		while ((line = br.readLine()) != null) {
+			String[] parts = line.split(" ");
+			// String element = parts[0]; //we take all parts in order to process all TP patterns
+
+			/*
+			 * warmup the system
+			 */
+			warmup();
+
+			
+			//String queryString = QueryUtils.createJoinQuery(rol1, rol2, join, parts);
+			
+			
+			
+			
+			
+			//System.out.println("queryString:" + queryString);
+			Map<Integer, ArrayList<String>> solutions = new HashMap<Integer, ArrayList<String>>();
+			int start = 0;
+			int end = TOTALVERSIONS - 1;
+			int jump=5; //fix this by default
+			if (jump > 0) {
+				end = ((TOTALVERSIONS - 1) / jump) + 1; // +1 to do one loop at
+														// least
+			}
+			for (int index = start; index < end; index++) {
+				int versionQuery = index;
+
+				int postversionQuery = versionQuery + 1;
+				if (jump > 0) {
+					postversionQuery = Math.min((index + 1) * jump, TOTALVERSIONS - 1);
+					versionQuery = 0; //assume it is always the comparison with 0
+				}
+				System.out.println("postVersionQuery is: "+postversionQuery);
+
+				String queryString = QueryUtils.createJoinQueryAnnotatedGraph(rol1, rol2, join, parts, versionQuery, postversionQuery, metadataVersions);
+				System.out.println("QueryString: "+queryString);
+				Query query = QueryFactory.create(queryString);
+				long startTime = System.currentTimeMillis();
+
+				solutions.put(postversionQuery, materializeQuery(postversionQuery, query));
+				 			
+				//else
+					//solutions.put(i, materializeASKQuery(i, query));
+
+				long endTime = System.currentTimeMillis();
+				// system.out.println("Time:" + (endTime - startTime));
+				vStats.get(index).addValue((endTime - startTime));
+
+			}
+			ret.add(solutions);
+
+		}
+		br.close();
+
+		if (measureTime) {
+			// PrintWriter pw = new PrintWriter(new File(outputDIR + "/res-dynmat-" + inputFile.getName()));
+			PrintWriter pw = new PrintWriter(new File(outputTime));
+			pw.println("##ver, min, mean, max, stddev, count, total");
+			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
+				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+ " "+ent.getValue().getSum());
+			}
+			pw.close();
+		}
+		return ret;
 	}
 }

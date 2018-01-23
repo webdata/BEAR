@@ -3,10 +3,12 @@
  */
 package org.ai.wu.ac.at.tdbArchive.utils;
 
+import java.util.HashSet;
 import java.util.Iterator;
 
 import org.apache.jena.query.QuerySolution;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.riot.out.OutputPolicy;
 
 /**
  * @author Javier Fernández
@@ -658,50 +660,25 @@ public final class QueryUtils {
 		
 		return queryString;
 	}
-	public static final String createJoinQuery(String queryType1,String queryType2, String join,String[] terms) {
+	public static final String createJoinQueryGraphFromIntermediate(String queryType1,String queryType2,String join,String intermediateSol, String[] terms) {
 		QueryRol qtype1 = getQueryRol(queryType1);
-		String subject1="?element1", predicate1="?element2", object1="?element3";
 		QueryRol qtype2 = getQueryRol(queryType2);
 		String subject2="?element4", predicate2="?element5", object2="?element6";
 		String queryString="";
 		int numTerms=0;
-		if ((qtype1==QueryRol.S)||(qtype1==QueryRol.SP)||(qtype1==QueryRol.SO)||(qtype1==QueryRol.SPO)){
-			subject1 = terms[0];
-			numTerms++;
-			if (subject1.startsWith("http"))
-				subject1 = "<" + subject1 + ">";
-		}
-		if (qtype1==QueryRol.P||qtype1==QueryRol.PO){
-			predicate1 = terms[0];
-			numTerms++;
-			if (predicate1.startsWith("http"))
-				predicate1 = "<" + predicate1 + ">";
-		}
-		if (qtype1==QueryRol.SP || qtype1==QueryRol.SPO ){
-			predicate1 = terms[1];
-			numTerms++;
-			if (predicate1.startsWith("http"))
-				predicate1 = "<" + predicate1 + ">";
-		}
-		if (qtype1==QueryRol.O){
-			object1 = terms[0];
-			numTerms++;
-			if (object1.startsWith("http"))
-				object1 = "<" + object1 + ">";
-		}
-		if (qtype1==QueryRol.SO||qtype1==QueryRol.PO){
-			object1 = terms[1];
-			numTerms++;
-			if (object1.startsWith("http"))
-				object1 = "<" + object1 + ">";
-		}
-		if (qtype1==QueryRol.SPO){
-			object1 = terms[2];
-			numTerms++;
-			if (object1.startsWith("http"))
-				object1 = "<" + object1 + ">";
+		if ((qtype1==QueryRol.S)||(qtype1==QueryRol.P)||(qtype1==QueryRol.O)){
+			numTerms=1;
 		}
 		
+		if ((qtype1==QueryRol.SP)||(qtype1==QueryRol.SO)||(qtype1==QueryRol.PO)){
+			numTerms=2;
+		}
+		
+		if (qtype1==QueryRol.SPO ){
+			numTerms=3;
+		}
+		// split the intermediate result
+		String[] parts = intermediateSol.split(" ");
 /////
 		if ((qtype2==QueryRol.S)||(qtype2==QueryRol.SP)||(qtype2==QueryRol.SO)||(qtype2==QueryRol.SPO)){
 			subject2 = terms[numTerms];
@@ -739,21 +716,181 @@ public final class QueryUtils {
 			if (object2.startsWith("http"))
 				object2 = "<" + object2 + ">";
 		}
+		System.out.println("join is:"+join);
+		
 		
 		if (join.equalsIgnoreCase("ss")){
+			subject2 = parts[0]; //first component of the solution in any case
+
+			
+		}
+		else if (join.equalsIgnoreCase("oo")){
+			if ((qtype1==QueryRol.S)||(qtype1==QueryRol.P)){
+				object2 = parts[1]; //second component of the solution
+				
+			}
+			else if ((qtype1==QueryRol.SP)){
+				object2 = parts[0]; //second component of the solution
+			}
+			else if ((qtype1==QueryRol.ALL)){
+				object2 = parts[2]; //second component of the solution
+			}
+		
+		}
+		else if (join.equalsIgnoreCase("so")){
+			if ((qtype1==QueryRol.P)||(qtype1==QueryRol.S)){
+				subject2 = parts[1]; //second component of the solution
+			}
+			else if ((qtype1==QueryRol.SP)){
+				subject2 = parts[0]; //first component of the solution
+			}
+			else if ((qtype1==QueryRol.ALL)){
+				subject2 = parts[2]; //second component of the solution
+			}
+			
+		}
+		
+		
+		queryString = "SELECT * WHERE {GRAPH ?graph{ "+subject2+" "+predicate2+" "+object2+" . } }";
+		
+		
+		return queryString;
+	}
+	public static final String createJoinQueryAnnotatedGraph(String queryType1,String queryType2, String join,String[] terms,int version1,int version2, String metadataVersions) {
+		QueryRol qtype1 = getQueryRol(queryType1);
+		String subject1="?element1", predicate1="?element2", object1="?element3";
+		QueryRol qtype2 = getQueryRol(queryType2);
+		String subject2="?element4", predicate2="?element5", object2="?element6";
+		String queryString="";
+		
+		
+		String graphWHERE1= "GRAPH <http://example.org/versions> {?graph1 " + metadataVersions + " "
+				+ version1 + " . }\n";
+		String graphWHERE2= "GRAPH <http://example.org/versions> {?graph2 " + metadataVersions + " "
+				+ version2 + " . }\n";
+		
+		HashSet<String> output= new HashSet<String>();
+		output.add(subject1);
+		output.add(subject2);
+		output.add(object1);
+		output.add(object2);
+		output.add(predicate1);
+		output.add(predicate2);
+		
+		
+		int numTerms=0;
+		if ((qtype1==QueryRol.S)||(qtype1==QueryRol.SP)||(qtype1==QueryRol.SO)||(qtype1==QueryRol.SPO)){
+			output.remove(subject1);
+			subject1 = terms[0];
+			numTerms++;
+			if (subject1.startsWith("http"))
+				subject1 = "<" + subject1 + ">";
+		}
+		if (qtype1==QueryRol.P||qtype1==QueryRol.PO){
+			output.remove(predicate1);
+			predicate1 = terms[0];
+			numTerms++;
+			if (predicate1.startsWith("http"))
+				predicate1 = "<" + predicate1 + ">";
+		}
+		if (qtype1==QueryRol.SP || qtype1==QueryRol.SPO ){
+			output.remove(predicate1);
+			predicate1 = terms[1];
+			numTerms++;
+			if (predicate1.startsWith("http"))
+				predicate1 = "<" + predicate1 + ">";
+		}
+		if (qtype1==QueryRol.O){
+			output.remove(object1);
+			object1 = terms[0];
+			numTerms++;
+			if (object1.startsWith("http"))
+				object1 = "<" + object1 + ">";
+		}
+		if (qtype1==QueryRol.SO||qtype1==QueryRol.PO){
+			output.remove(object1);
+			object1 = terms[1];
+			numTerms++;
+			if (object1.startsWith("http"))
+				object1 = "<" + object1 + ">";
+		}
+		if (qtype1==QueryRol.SPO){
+			output.remove(object1);
+			object1 = terms[2];
+			numTerms++;
+			if (object1.startsWith("http"))
+				object1 = "<" + object1 + ">";
+		}
+		
+/////
+		if ((qtype2==QueryRol.S)||(qtype2==QueryRol.SP)||(qtype2==QueryRol.SO)||(qtype2==QueryRol.SPO)){
+			output.remove(subject2);
+			subject2 = terms[numTerms];
+			numTerms++;
+			if (subject2.startsWith("http"))
+				subject2 = "<" + subject2 + ">";
+		}
+		if (qtype2==QueryRol.P||qtype2==QueryRol.PO){
+			output.remove(predicate2);
+			predicate2 = terms[numTerms];
+			numTerms++;
+			if (predicate2.startsWith("http"))
+				predicate2 = "<" + predicate2 + ">";
+		}
+		if (qtype2==QueryRol.SP || qtype2==QueryRol.SPO ){
+			output.remove(predicate2);
+			predicate2 = terms[numTerms];
+			numTerms++;
+			if (predicate2.startsWith("http"))
+				predicate2 = "<" + predicate2 + ">";
+		}
+		if (qtype2==QueryRol.O){
+			output.remove(object2);
+			object2 = terms[numTerms];
+			numTerms++;
+			if (object2.startsWith("http"))
+				object2 = "<" + object2 + ">";
+		}
+		if (qtype2==QueryRol.SO||qtype2==QueryRol.PO){
+			output.remove(object2);
+			object2 = terms[numTerms];
+			numTerms++;
+			if (object2.startsWith("http"))
+				object2 = "<" + object2 + ">";
+		}
+		if (qtype2==QueryRol.SPO){
+			output.remove(object2);
+			object2 = terms[numTerms];
+			numTerms++;
+			if (object2.startsWith("http"))
+				object2 = "<" + object2 + ">";
+		}
+		
+		if (join.equalsIgnoreCase("ss")){
+			
+			output.remove(subject2);
 			subject2 = subject1;
 		}
 		else if (join.equalsIgnoreCase("oo")){
+			
+			output.remove(object2);
 			object2 = object1;
 		}
 		else if (join.equalsIgnoreCase("so")){
+			output.remove(subject2);
+			
 			subject2 = object1;
 		}
+		String projection="*";
+		if (output.size()>0){
+			projection="";
+			Iterator<String> it = output.iterator();
+			while (it.hasNext()){
+				projection+=" "+it.next();
+			}
+		}
 		
-		
-		queryString = "SELECT * WHERE { "+subject1+" "+predicate1+" "+object1+" . "+ subject2+" "+predicate2+" "+object2+" .}";
-		
-				
+		queryString = "SELECT "+projection+" WHERE { {"+ graphWHERE1 + "GRAPH ?graph1{ "+subject1+" "+ predicate1+" "+object1+ "}} {"+ graphWHERE2 + "GRAPH ?graph2{ "+subject2+" "+ predicate2+" "+object2+ "}}}";			
 
 		return queryString;
 	}
