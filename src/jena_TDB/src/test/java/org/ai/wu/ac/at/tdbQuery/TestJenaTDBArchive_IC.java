@@ -110,7 +110,7 @@ public class TestJenaTDBArchive_IC {
 		String query = QueryUtils.createLookupQuery("predicate", "<http://example.org/predicate1>");
 		ArrayList<String> solution = jenaArchive.matQuery(3, query);
 		ArrayList<String> expected = new ArrayList<String>();
-		expected.add("<http://example.org/uri1> literal4");
+		expected.add("<http://example.org/uri1> \"literal4\"");
 
 		assertTrue(expected.containsAll(solution) && solution.containsAll(expected));
 	}
@@ -122,35 +122,35 @@ public class TestJenaTDBArchive_IC {
 		ArrayList<Map<Integer, ArrayList<String>>> solution = jenaArchive.bulkAllMatQuerying(queryurl.getFile(), "subject");
 
 		ArrayList<String> version0 = new ArrayList<String>();
-		version0.add("<http://example.org/predicate1> literal1");
-		version0.add("<http://example.org/predicate1> literal2");
-		version0.add("<http://example.org/predicate1> literal3");
-		version0.add("<http://example.org/predicate1> literal4");
+		version0.add("<http://example.org/predicate1> \"literal1\"");
+		version0.add("<http://example.org/predicate1> \"literal2\"");
+		version0.add("<http://example.org/predicate1> \"literal3\"");
+		version0.add("<http://example.org/predicate1> \"literal4\"");
 		version0.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version0.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		ArrayList<String> solutionversion = solution.get(0).get(0);
 		assertTrue(version0.containsAll(solutionversion) && solutionversion.containsAll(version0));
 
 		ArrayList<String> version1 = new ArrayList<String>();
-		version1.add("<http://example.org/predicate1> literal1");
-		version1.add("<http://example.org/predicate1> literal2");
-		version1.add("<http://example.org/predicate1> literal3");
+		version1.add("<http://example.org/predicate1> \"literal1\"");
+		version1.add("<http://example.org/predicate1> \"literal2\"");
+		version1.add("<http://example.org/predicate1> \"literal3\"");
 		version1.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version1.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solution.get(0).get(1);
 		assertTrue(version1.containsAll(solutionversion) && solutionversion.containsAll(version1));
 
 		ArrayList<String> version2 = new ArrayList<String>();
-		version2.add("<http://example.org/predicate1> literal1");
-		version2.add("<http://example.org/predicate1> literal2");
-		version2.add("<http://example.org/predicate1> literal3");
+		version2.add("<http://example.org/predicate1> \"literal1\"");
+		version2.add("<http://example.org/predicate1> \"literal2\"");
+		version2.add("<http://example.org/predicate1> \"literal3\"");
 		version2.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version2.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solution.get(0).get(2);
 		assertTrue(version2.containsAll(solutionversion) && solutionversion.containsAll(version2));
 
 		ArrayList<String> version3 = new ArrayList<String>();
-		version3.add("<http://example.org/predicate1> literal4");
+		version3.add("<http://example.org/predicate1> \"literal4\"");
 		version3.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version3.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solution.get(0).get(3);
@@ -278,7 +278,7 @@ public class TestJenaTDBArchive_IC {
 
 		ArrayList<String> expectedDel = new ArrayList<String>();
 
-		expectedDel.add("<http://example.org/predicate1> literal4");
+		expectedDel.add("<http://example.org/predicate1> \"literal4\"");
 
 		assertTrue(expectedDel.containsAll(solutionDel) && solutionDel.containsAll(expectedDel));
 	}
@@ -319,7 +319,7 @@ public class TestJenaTDBArchive_IC {
 		ArrayList<String> expectedDel = new ArrayList<String>();
 		ArrayList<String> expectedAdd = new ArrayList<String>();
 
-		expectedDel.add("<http://example.org/predicate1> literal4");
+		expectedDel.add("<http://example.org/predicate1> \"literal4\"");
 		// System.out.println(solutionDel);
 		assertTrue(expectedAdd.containsAll(solutionAdd) && solutionAdd.containsAll(expectedAdd));
 		assertTrue(expectedDel.containsAll(solutionDel) && solutionDel.containsAll(expectedDel));
@@ -333,7 +333,7 @@ public class TestJenaTDBArchive_IC {
 		expectedDel = new ArrayList<String>();
 		expectedAdd = new ArrayList<String>();
 
-		expectedDel.add("<http://example.org/predicate1> literal4");
+		expectedDel.add("<http://example.org/predicate1> \"literal4\"");
 		// System.out.println(solutionDel);
 		assertTrue(expectedAdd.containsAll(solutionAdd) && solutionAdd.containsAll(expectedAdd));
 		assertTrue(expectedDel.containsAll(solutionDel) && solutionDel.containsAll(expectedDel));
@@ -349,9 +349,9 @@ public class TestJenaTDBArchive_IC {
 		expectedDel = new ArrayList<String>();
 		expectedAdd = new ArrayList<String>();
 
-		expectedDel.add("<http://example.org/predicate1> literal1");
-		expectedDel.add("<http://example.org/predicate1> literal2");
-		expectedDel.add("<http://example.org/predicate1> literal3");
+		expectedDel.add("<http://example.org/predicate1> \"literal1\"");
+		expectedDel.add("<http://example.org/predicate1> \"literal2\"");
+		expectedDel.add("<http://example.org/predicate1> \"literal3\"");
 		assertTrue(expectedAdd.containsAll(solutionAdd) && solutionAdd.containsAll(expectedAdd));
 		assertTrue(expectedDel.containsAll(solutionDel) && solutionDel.containsAll(expectedDel));
 
@@ -462,6 +462,25 @@ public class TestJenaTDBArchive_IC {
 		assertTrue(expectedDel.containsAll(solutionDel) && solutionDel.containsAll(expectedDel));
 
 	}
+	
+	@Test
+	public void testbulkAllchangeQueryingwithAddsAndDeletes() throws InterruptedException, ExecutionException, IOException {
+		URL queryurl = this.getClass().getResource(FileSystems.getDefault().getSeparator() + "testIC/testQueryDynamic.txt");
+
+		ArrayList<ArrayList<Integer>> solution = jenaArchive.bulkAllChangeQuerying(queryurl.getFile(), "subject");
+
+		ArrayList<Integer>solutionFirstLine = solution.get(0);
+		for (int i:solutionFirstLine){
+			System.out.println("solution: "+i);
+		}
+		/*
+		 * diff 0 and 1
+		 */
+		ArrayList<Integer> expected = new ArrayList<Integer>();
+		expected.add(0);
+		expected.add(2);
+		assertTrue(expected.containsAll(solutionFirstLine) && solutionFirstLine.containsAll(expected));
+	}
 	@Test
 	public void testVerQuery() throws InterruptedException, ExecutionException, FileNotFoundException, IOException {
 
@@ -469,35 +488,35 @@ public class TestJenaTDBArchive_IC {
 		Map<Integer, ArrayList<String>> solution = jenaArchive.verQuery(query);
 
 		ArrayList<String> version0 = new ArrayList<String>();
-		version0.add("<http://example.org/predicate1> literal1");
-		version0.add("<http://example.org/predicate1> literal2");
-		version0.add("<http://example.org/predicate1> literal3");
-		version0.add("<http://example.org/predicate1> literal4");
+		version0.add("<http://example.org/predicate1> \"literal1\"");
+		version0.add("<http://example.org/predicate1> \"literal2\"");
+		version0.add("<http://example.org/predicate1> \"literal3\"");
+		version0.add("<http://example.org/predicate1> \"literal4\"");
 		version0.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version0.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		ArrayList<String> solutionversion = solution.get(0);
 		assertTrue(version0.containsAll(solutionversion) && solutionversion.containsAll(version0));
 
 		ArrayList<String> version1 = new ArrayList<String>();
-		version1.add("<http://example.org/predicate1> literal1");
-		version1.add("<http://example.org/predicate1> literal2");
-		version1.add("<http://example.org/predicate1> literal3");
+		version1.add("<http://example.org/predicate1> \"literal1\"");
+		version1.add("<http://example.org/predicate1> \"literal2\"");
+		version1.add("<http://example.org/predicate1> \"literal3\"");
 		version1.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version1.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solution.get(1);
 		assertTrue(version1.containsAll(solutionversion) && solutionversion.containsAll(version1));
 
 		ArrayList<String> version2 = new ArrayList<String>();
-		version2.add("<http://example.org/predicate1> literal1");
-		version2.add("<http://example.org/predicate1> literal2");
-		version2.add("<http://example.org/predicate1> literal3");
+		version2.add("<http://example.org/predicate1> \"literal1\"");
+		version2.add("<http://example.org/predicate1> \"literal2\"");
+		version2.add("<http://example.org/predicate1> \"literal3\"");
 		version2.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version2.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solution.get(2);
 		assertTrue(version2.containsAll(solutionversion) && solutionversion.containsAll(version2));
 
 		ArrayList<String> version3 = new ArrayList<String>();
-		version3.add("<http://example.org/predicate1> literal4");
+		version3.add("<http://example.org/predicate1> \"literal4\"");
 		version3.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version3.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solution.get(3);
@@ -514,35 +533,35 @@ public class TestJenaTDBArchive_IC {
 		Map<Integer, ArrayList<String>> solutionFirstLine = solution.get(0);
 
 		ArrayList<String> version0 = new ArrayList<String>();
-		version0.add("<http://example.org/predicate1> literal1");
-		version0.add("<http://example.org/predicate1> literal2");
-		version0.add("<http://example.org/predicate1> literal3");
-		version0.add("<http://example.org/predicate1> literal4");
+		version0.add("<http://example.org/predicate1> \"literal1\"");
+		version0.add("<http://example.org/predicate1> \"literal2\"");
+		version0.add("<http://example.org/predicate1> \"literal3\"");
+		version0.add("<http://example.org/predicate1> \"literal4\"");
 		version0.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version0.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		ArrayList<String> solutionversion = solutionFirstLine.get(0);
 		assertTrue(version0.containsAll(solutionversion) && solutionversion.containsAll(version0));
 
 		ArrayList<String> version1 = new ArrayList<String>();
-		version1.add("<http://example.org/predicate1> literal1");
-		version1.add("<http://example.org/predicate1> literal2");
-		version1.add("<http://example.org/predicate1> literal3");
+		version1.add("<http://example.org/predicate1> \"literal1\"");
+		version1.add("<http://example.org/predicate1> \"literal2\"");
+		version1.add("<http://example.org/predicate1> \"literal3\"");
 		version1.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version1.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solutionFirstLine.get(1);
 		assertTrue(version1.containsAll(solutionversion) && solutionversion.containsAll(version1));
 
 		ArrayList<String> version2 = new ArrayList<String>();
-		version2.add("<http://example.org/predicate1> literal1");
-		version2.add("<http://example.org/predicate1> literal2");
-		version2.add("<http://example.org/predicate1> literal3");
+		version2.add("<http://example.org/predicate1> \"literal1\"");
+		version2.add("<http://example.org/predicate1> \"literal2\"");
+		version2.add("<http://example.org/predicate1> \"literal3\"");
 		version2.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version2.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solutionFirstLine.get(2);
 		assertTrue(version2.containsAll(solutionversion) && solutionversion.containsAll(version2));
 
 		ArrayList<String> version3 = new ArrayList<String>();
-		version3.add("<http://example.org/predicate1> literal4");
+		version3.add("<http://example.org/predicate1> \"literal4\"");
 		version3.add("<http://example.org/predicate2> <http://example.org/uri2>");
 		version3.add("<http://example.org/predicate2> <http://example.org/uri5>");
 		solutionversion = solutionFirstLine.get(3);
@@ -608,5 +627,34 @@ public class TestJenaTDBArchive_IC {
 	
 		solutionversion = solutionFirstLine.get(3);
 		assertTrue(version3.containsAll(solutionversion) && solutionversion.containsAll(version3));
+	}
+	
+	@Test
+	public void testbulkAllJoinQuerying_SS() throws InterruptedException, ExecutionException, FileNotFoundException, IOException {
+
+		URL queryurl = this.getClass().getResource(FileSystems.getDefault().getSeparator() + "testIC/testQueryDynamic_join_PO.txt");
+		ArrayList<Map<Integer, ArrayList<String>>> solution = jenaArchive.bulkAllJoinQuerying(queryurl.getFile(), "PO","PO","ss");
+
+		ArrayList<String> version0 = new ArrayList<String>();
+		version0.add("<http://example.org/uri1>");
+		ArrayList<String> solutionversion = solution.get(0).get(3);
+//		System.out.println("solutionversion:"+solutionversion);
+		assertTrue(version0.containsAll(solutionversion) && solutionversion.containsAll(version0));
+
+		
+	}
+	@Test
+	public void testbulkAllJoinQuerying_SO() throws InterruptedException, ExecutionException, FileNotFoundException, IOException {
+
+		URL queryurl = this.getClass().getResource(FileSystems.getDefault().getSeparator() + "testIC/testQueryDynamic_join_P.txt");
+		ArrayList<Map<Integer, ArrayList<String>>> solution = jenaArchive.bulkAllJoinQuerying(queryurl.getFile(), "p","p","so");
+
+		ArrayList<String> version0 = new ArrayList<String>();
+		version0.add("<http://example.org/uri3> <http://example.org/uri4> <http://example.org/uri6>");
+		ArrayList<String> solutionversion = solution.get(0).get(3);  
+		System.out.println("solutionversion:"+solutionversion);
+		assertTrue(version0.containsAll(solutionversion) && solutionversion.containsAll(version0));
+
+		
 	}
 }

@@ -117,6 +117,18 @@ public interface JenaTDBArchive {
 	 */
 	ArrayList<Map<Integer,ArrayList<String>>> bulkAllVerQuerying(String queryFile, String rol) throws InterruptedException, ExecutionException, IOException;
 
+	
+	/**
+	 * Reads input file with a Resource, and gets all the consecutive versions where the query is different
+	 * 
+	 * @param queryFile
+	 * @param rol
+	 * @return
+	 * @throws InterruptedException
+	 * @throws ExecutionException
+	 * @throws IOException
+	 */
+	ArrayList<ArrayList<Integer>> bulkAllChangeQuerying(String queryFile, String rol) throws InterruptedException, ExecutionException, IOException;
 	/**
 	 * Warmup the system 
 	 * 
@@ -130,5 +142,19 @@ public interface JenaTDBArchive {
 	 */
 	public void setOutputTime(String outputTime);
 
+	/**
+	 * Reads input file with a Resource, and gets the result of a join of the provided Resource with the provided roles (Subject, Predicate, Object)
+	 * @param queryFile
+	 * @param rol1
+	 * @param rol2
+	 * @param join
+	 * @return
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 * @throws InterruptedException
+	 * @throws ExecutionException
+	 */
+	public ArrayList<Map<Integer, ArrayList<String>>> bulkAllJoinQuerying(String queryFile, String rol1, String rol2, String join) throws FileNotFoundException, IOException,
+			InterruptedException, ExecutionException;
 	
 }

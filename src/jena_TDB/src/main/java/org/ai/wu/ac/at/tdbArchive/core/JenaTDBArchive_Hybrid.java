@@ -234,10 +234,187 @@ public class JenaTDBArchive_Hybrid implements JenaTDBArchive {
 	 * @throws ExecutionException
 	 * @throws IOException
 	 */
-	private void bulkAllChangeQuerying(String queryFile, String rol, HashMap<Integer, Dataset> datasets, HashMap<Integer, Dataset> datasets_adds,
-			HashMap<Integer, Dataset> datasets_dels, TreeSet<Integer> materializedVersions) throws InterruptedException, ExecutionException,
-			IOException {
+	public ArrayList<ArrayList<Integer>> bulkAllChangeQuerying(String queryFile, String rol) throws InterruptedException, ExecutionException, IOException {
+		ArrayList<ArrayList<Integer>> ret = new ArrayList<ArrayList<Integer>>();
+		
+		
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
 
+		File inputFile = new File(queryFile);
+		BufferedReader br = new BufferedReader(new FileReader(inputFile));
+		String line = "";
+
+		TreeMap<Integer, DescriptiveStatistics> vStats = new TreeMap<Integer, DescriptiveStatistics>();
+		for (int i = 0; i < TOTALVERSIONS; i++) {
+			vStats.put(i, new DescriptiveStatistics());
+		}
+
+		DescriptiveStatistics total = new DescriptiveStatistics();
+
+		while ((line = br.readLine()) != null) {
+			ArrayList<Integer> solutions = new ArrayList<Integer>();
+
+			String[] parts = line.split(" ");
+			// String element = parts[0]; //we take all parts in order to process all TP patterns
+
+			/*
+			 * warmup the system
+			 */
+			warmup();
+
+			int start = 0;
+			int end = TOTALVERSIONS - 1;
+			for (int index = start; index < end; index++) {
+				
+				int versionQuery = index;
+				int postversionQuery = versionQuery + 1;
+				
+				// System.out.println("versionQuery:" + versionQuery + " ; postQuery:" + postversionQuery);
+
+				String queryString = QueryUtils.createLookupQuery(rol, parts);
+
+				Query query = QueryFactory.create(queryString);
+
+				long startTime = System.currentTimeMillis();
+
+				HashSet<String> resultsStart = new HashSet<String>();
+				if (!askQuery)
+					resultsStart = new HashSet<String>(materializeQuery(versionQuery, query));
+				else
+					resultsStart = new HashSet<String>(materializeASKQuery(versionQuery, query));
+				HashSet<String> resultsEnd = new HashSet<String>();
+				// first check if staticVersionQuery is in IC
+				if (datasets.get(postversionQuery) != null) {
+					// System.out.println("Version:" + postversionQuery + " is in IC");
+					if (!askQuery)
+						resultsEnd = new HashSet<String>(materializeQuery(datasets.get(postversionQuery), query));
+					else
+						resultsEnd = new HashSet<String>(materializeASKQuery(datasets.get(postversionQuery), query));
+				} else {
+					// get closest IC less than the given version
+					Integer lower = materializedVersions.lower(postversionQuery);
+					// System.out.println("Version:" + postversionQuery + " is NOT in IC, it is CB");
+					// get first results from IC and retrieve the Deltas
+
+					TreeMap<Integer, QueryResult> results = new TreeMap<Integer, QueryResult>();
+					Set<TaskThread> a = new HashSet<TaskThread>();
+
+					// check if lower is the same as versionQuery
+					if (lower == versionQuery) {
+						resultsEnd = new HashSet<String>(resultsStart);
+					} else {
+						TaskThread task = new TaskThread(query, datasets.get(lower), lower, true, results, askQuery);
+						a.add(task);
+						task.start();
+					}
+
+					/**
+					 * START PARALELL
+					 */
+					TreeMap<Integer, QueryResult> results_adds = new TreeMap<Integer, QueryResult>();
+					TreeMap<Integer, QueryResult> results_dels = new TreeMap<Integer, QueryResult>();
+
+					for (int i = lower + 1; i <= postversionQuery; i++) {
+						// System.out.println("getting adds and dels of version " + i);
+						TaskThread task_add = new TaskThread(query, datasets_adds.get(i), i, true, results_adds, askQuery);
+						TaskThread task_del = new TaskThread(query, datasets_dels.get(i), i, false, results_dels, askQuery);
+						task_add.start();
+						a.add(task_add);
+						task_del.start();
+						a.add(task_del);
+					}
+					for (TaskThread an : a) {
+						try {
+							an.join();
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					}
+
+					/**
+					 * END PARALELL
+					 */
+					// get the IC if needed
+					if (results != null && results.size() > 0) {
+						if (!askQuery) {
+							while (results.get(lower).getSol().hasNext()) {
+								QuerySolution soln = results.get(lower).getSol().next();
+								String rowResult = QueryUtils.serializeSolution(soln);
+								resultsEnd.add(rowResult);
+							}
+						} else {
+							resultsEnd.add(results.get(lower).getSolAsk().toString());
+						}
+
+					}
+
+					// add and del solution from IC
+					if (!askQuery) {
+						for (int i = lower + 1; i <= postversionQuery; i++) {
+							// System.out.println("Iterating results " + i);
+							while (results_adds.get(i).getSol().hasNext()) {
+								QuerySolution soln = results_adds.get(i).getSol().next();
+								String rowResult = QueryUtils.serializeSolution(soln);
+								// System.out.println("++ ADDED in Version:" + i+" ; "+rowResult);
+								resultsEnd.add(rowResult);
+							}
+							while (results_dels.get(i).getSol().hasNext()) {
+								QuerySolution soln = results_dels.get(i).getSol().next();
+								String rowResult = QueryUtils.serializeSolution(soln);
+								// System.out.println("-- DEL in Version:" + i+" ; "+rowResult);
+								resultsEnd.remove(rowResult);
+							}
+						}
+					} else {
+						for (int i = lower + 1; i <= postversionQuery; i++) {
+							resultsEnd.add(results_adds.get(i).getSolAsk().toString());
+							resultsEnd.remove(results_dels.get(i).getSolAsk().toString());
+						}
+					}
+				}
+
+				// compute the deltas between result1 (initial) and results2 (end)
+
+				Boolean found=false;
+				for (String result : resultsStart) {
+					if (!resultsEnd.contains(result)) {
+						found=true;
+						break;
+						// System.out.println("del:" + result);
+					}
+				}
+				if (!found){
+					for (String result : resultsEnd) {
+						if (!resultsStart.contains(result)) {
+							found=true;
+							break;
+						}
+					}
+				}
+				if (found)
+					solutions.add(versionQuery);
+				long endTime = System.currentTimeMillis();
+				// System.out.println("Time:" + (endTime - startTime));
+				total.addValue((endTime - startTime));
+				vStats.get(index).addValue((endTime - startTime));
+
+			}
+			ret.add(solutions);
+		}
+		if (measureTime) {
+			PrintWriter pw = new PrintWriter(new File(outputTime));
+			pw.println("##bucket, min, mean, max, stddev, count");
+			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
+				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
+			}
+			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
+					+ total.getN());
+			pw.close();
+		}
+		br.close();
+		return ret;
+		
 	}
 
 	/**
@@ -1141,5 +1318,11 @@ public class JenaTDBArchive_Hybrid implements JenaTDBArchive {
 				datasets_dels.get(i).end();
 		}
 
+	}
+
+	public ArrayList<Map<Integer, ArrayList<String>>> bulkAllJoinQuerying(String queryFile, String rol1, String rol2, String join)
+			throws FileNotFoundException, IOException, InterruptedException, ExecutionException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

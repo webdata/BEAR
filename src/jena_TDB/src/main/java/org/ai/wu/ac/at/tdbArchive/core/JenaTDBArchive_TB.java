@@ -214,6 +214,130 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 		return new DiffSolution(finalAdds, finalDels);
 	}
 
+	public ArrayList<ArrayList<Integer>>  bulkAllChangeQuerying(String queryFile, String rol) throws InterruptedException, ExecutionException, IOException {
+		ArrayList<ArrayList<Integer>> ret = new ArrayList<ArrayList<Integer>>();
+		
+		File inputFile = new File(queryFile);
+		BufferedReader br = new BufferedReader(new FileReader(inputFile));
+		String line = "";
+
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
+
+		TreeMap<Integer, DescriptiveStatistics> vStats = new TreeMap<Integer, DescriptiveStatistics>();
+		for (int i = 0; i < TOTALVERSIONS; i++) {
+			vStats.put(i, new DescriptiveStatistics());
+		}
+
+		DescriptiveStatistics total = new DescriptiveStatistics();
+
+		while ((line = br.readLine()) != null) {
+			ArrayList<Integer> solutions = new ArrayList<Integer>();
+
+			String[] parts = line.split(" ");
+			// String element = parts[0];
+
+			/*
+			 * warmup the system
+			 */
+			warmup();
+
+			int start = 0;
+			int end = TOTALVERSIONS - 1;
+			
+			for (int index = start; index < end; index++) {
+				
+				int versionQuery = index;
+				int postversionQuery = versionQuery + 1;
+				
+				// System.out.println("versionQuery:" + versionQuery + " ; postQuery:" + postversionQuery);
+
+				String queryStringStart = QueryUtils.createLookupQueryAnnotatedGraph(rol, parts, versionQuery, metadataVersions);
+				String queryStringEnd = QueryUtils.createLookupQueryAnnotatedGraph(rol, parts, postversionQuery, metadataVersions);
+				long startTime = System.currentTimeMillis();
+				QueryExecution qexecStart = QueryExecutionFactory.create(queryStringStart, dataset);
+				QueryExecution qexecEnd = QueryExecutionFactory.create(queryStringEnd, dataset);
+				HashSet<String> finalResultsStart = new HashSet<String>();
+				HashSet<String> finalResultsEnd = new HashSet<String>();
+				Boolean found=false;
+				if (!askQuery) {
+					ResultSet resultsStart = qexecStart.execSelect();
+
+					QuerySolution soln = null;
+					while (resultsStart.hasNext()) {
+						soln = resultsStart.next();
+						String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
+						// System.out.println("solutionStart: "+rowResult);
+						finalResultsStart.add(rowResult);
+					}
+
+					ResultSet resultsEnd = qexecEnd.execSelect();
+					
+					
+					while (resultsEnd.hasNext() && !found) {
+						soln = resultsEnd.next();
+						String rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
+						// System.out.println("solutionEnd: "+rowResult);
+						finalResultsEnd.add(rowResult);
+						if (!finalResultsStart.contains(rowResult)) {
+							// result has been added
+							// System.out.println("add: " + rowResult);
+							found=true;
+
+						}
+
+					}
+					// check potential results deleted
+					if (!found){
+						for (String solStart : finalResultsStart) {
+							if (!finalResultsEnd.contains(solStart)) {
+								// result has been deleted
+								// System.out.println("del: " + solStart);
+								found=true;
+	
+							}
+						}
+					}
+
+				} else {
+					Boolean resultStart = qexecStart.execAsk();
+					finalResultsStart.add(resultStart.toString());
+					Boolean resultsEnd = qexecEnd.execAsk();
+					finalResultsEnd.add(resultsEnd.toString());
+					if (!finalResultsStart.contains(resultsEnd.toString())) {
+						found=true;
+					}
+					if (!finalResultsEnd.contains(resultStart.toString())) {
+						found=true;
+					}
+
+				}
+				qexecStart.close();
+				qexecEnd.close();
+
+				if (found) 
+					solutions.add(versionQuery);
+				long endTime = System.currentTimeMillis();
+				// System.out.println("Time:" + (endTime - startTime));
+				total.addValue((endTime - startTime));
+				vStats.get(index).addValue((endTime - startTime));
+
+			}
+			ret.add(solutions);
+		}
+		if (measureTime) {
+			PrintWriter pw = new PrintWriter(new File(outputTime));
+			pw.println("##bucket, min, mean, max, stddev, count,total");
+			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
+				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN()+" "+ent.getValue().getSum());
+			}
+			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
+					+ total.getN());
+			pw.close();
+		}
+		br.close();
+		return ret;
+	}
 	/**
 	 * Reads input file with a Resource, and gets the diff result of the lookup of the provided Resource with the provided rol (Subject, Predicate,
 	 * Object) for all versions between 0 and consecutive jumps
@@ -797,5 +921,11 @@ public class JenaTDBArchive_TB implements JenaTDBArchive {
 	 */
 	public void close() throws RuntimeException {
 		dataset.end();
+	}
+
+	public ArrayList<Map<Integer, ArrayList<String>>> bulkAllJoinQuerying(String queryFile, String rol1, String rol2, String join)
+			throws FileNotFoundException, IOException, InterruptedException, ExecutionException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

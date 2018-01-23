@@ -233,6 +233,154 @@ public class JenaTDBArchive_CBTB implements JenaTDBArchive {
 		return new DiffSolution(finalAdds, finalDels);
 	}
 
+	
+	public ArrayList<ArrayList<Integer>>  bulkAllChangeQuerying(String queryFile, String rol) throws InterruptedException, ExecutionException, IOException {
+		ArrayList<ArrayList<Integer>> ret = new ArrayList<ArrayList<Integer>>();
+		
+		File inputFile = new File(queryFile);
+		BufferedReader br = new BufferedReader(new FileReader(inputFile));
+		String line = "";
+
+		TreeMap<Integer, DescriptiveStatistics> vStats = new TreeMap<Integer, DescriptiveStatistics>();
+		for (int i = 0; i < TOTALVERSIONS; i++) {
+			vStats.put(i, new DescriptiveStatistics());
+		}
+
+		Boolean askQuery = rol.equalsIgnoreCase("SPO");
+
+		DescriptiveStatistics total = new DescriptiveStatistics();
+
+		while ((line = br.readLine()) != null) {
+			ArrayList<Integer> solutions = new ArrayList<Integer>();
+
+			String[] parts = line.split(" ");
+			// String element = parts[0];
+
+			/*
+			 * warmup the system
+			 */
+			warmup();
+
+			int start = 0;
+			int end = TOTALVERSIONS - 1;
+			for (int index = start; index < end; index++) {
+				// ArrayList<String> finalAdds = new ArrayList<String>();
+				// ArrayList<String> finalDels = new ArrayList<String>();
+				int versionQuery = index;
+				int postversionQuery = versionQuery + 1;
+				// System.out.println("versionQuery:" + versionQuery + " ; postQuery:" + postversionQuery);
+
+				String queryString = QueryUtils.createLookupQueryGraph(rol, parts);
+				// System.out.println("\n\n\nqueryString:" + queryString);
+				Query query = QueryFactory.create(queryString);
+				long startTime = System.currentTimeMillis();
+				QueryExecution qexec = QueryExecutionFactory.create(query, dataset);
+
+				ResultSet results = qexec.execSelect();
+
+				Boolean higherVersion1 = false;
+				Boolean higherVersion2 = false;
+				HashSet<String> finalResultsAdd = new HashSet<String>();
+				HashSet<String> finalResultsDel = new HashSet<String>();
+
+				Iterator<QuerySolution> sortResults = orderedResultSet(results, "graph");
+
+				QuerySolution soln = null;
+				while (sortResults.hasNext() && (!higherVersion1 | !higherVersion2)) {
+					soln = sortResults.next();
+					// assume we have a graph variable as a response
+					String graphResponse = soln.getResource("graph").toString();
+					String versionSuffix = graphResponse.split(prefixGraphsVersions)[1];
+					int versionFull = Integer.parseInt(versionSuffix);
+					// System.out.println("versionFull:"+versionFull);
+
+					int version = versionFull / 2;
+
+					if (version > versionQuery) {
+						higherVersion1 = true;
+					}
+
+					if (higherVersion1) {
+						// System.out.println("going between both versions");
+						// System.out.println("--version:" + version);
+						Boolean isAdd = false; // true if is Deleted
+						if (versionFull % 2 == 0) {
+							isAdd = true;
+						}
+
+						if (version > postversionQuery) {
+							higherVersion2 = true;
+						} else {
+
+							// assume we have element1 and element2
+							// variables as
+							// a response
+							String rowResult = "", checkOpposite = "";
+							if (!askQuery) {
+								rowResult = QueryUtils.serializeSolutionFilterOutGraphs(soln);
+
+								if (isAdd) {
+									// check if it was already as a delete
+									// result and, if so, delete this
+									if (!finalResultsDel.remove(rowResult))
+										finalResultsAdd.add(rowResult);
+								} else {
+									// check if it was already as an added
+									// result and, if so, delete this
+									if (!finalResultsAdd.remove(rowResult))
+										finalResultsDel.add(rowResult);
+								}
+							} else {
+								rowResult = new Boolean(true).toString();
+								if (isAdd) {
+									// check if it was already as a delete
+									// result and, if so, delete this
+									if (!finalResultsDel.remove(checkOpposite)) {
+										finalResultsAdd.add(rowResult);
+										finalResultsDel.add(new Boolean(false).toString());
+									}
+								} else {
+									// check if it was already as an added
+									// result and, if so, delete this
+									if (!finalResultsAdd.remove(checkOpposite)) {
+										finalResultsDel.add(rowResult);
+										finalResultsAdd.add(new Boolean(false).toString());
+									}
+								}
+
+							}
+
+						}
+					}
+				}
+				if (finalResultsAdd.size()>0 || finalResultsDel.size()>0){
+					solutions.add(versionQuery);
+				}
+				
+				long endTime = System.currentTimeMillis();
+				// System.out.println("Time:" + (endTime - startTime));
+				total.addValue((endTime - startTime));
+				vStats.get(index).addValue((endTime - startTime));
+				qexec.close();
+
+			}
+			ret.add(solutions);
+		}
+		if (measureTime) {
+
+			PrintWriter pw = new PrintWriter(new File(outputTime));
+			pw.println("##bucket, min, mean, max, stddev, count,total");
+			for (Entry<Integer, DescriptiveStatistics> ent : vStats.entrySet()) {
+				pw.println(ent.getKey() + " " + ent.getValue().getMin() + " " + ent.getValue().getMean() + " " + ent.getValue().getMax() + " "
+						+ ent.getValue().getStandardDeviation() + " " + ent.getValue().getN() + " " + ent.getValue().getSum());
+			}
+			pw.println("tot," + total.getMin() + "," + total.getMean() + "," + total.getMax() + "," + total.getStandardDeviation() + ","
+					+ total.getN());
+			pw.close();
+		}
+		br.close();
+		return ret;
+	}
 	/**
 	 * Reads input file with a Resource, and gets the diff result of the lookup of the provided Resource with the provided rol (Subject, Predicate,
 	 * Object) for all versions between 0 and consecutive jumps
@@ -963,5 +1111,11 @@ public class JenaTDBArchive_CBTB implements JenaTDBArchive {
 	 */
 	public void close() throws RuntimeException {
 		dataset.end();
+	}
+
+	public ArrayList<Map<Integer, ArrayList<String>>> bulkAllJoinQuerying(String queryFile, String rol1, String rol2, String join)
+			throws FileNotFoundException, IOException, InterruptedException, ExecutionException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

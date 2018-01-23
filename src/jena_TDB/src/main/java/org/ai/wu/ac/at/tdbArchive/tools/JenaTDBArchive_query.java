@@ -44,7 +44,9 @@ public class JenaTDBArchive_query {
 		int versionQuery = 0;
 		int endversionQuery = 0;
 		int jump = 0;
+		String joinCategory="";
 		String rol = "subject"; // for bulk queries
+		String rolSecondTP = "subject"; // for join queries
 		Boolean silent = false;
 		Boolean splitResultsByVersion=false;
 		try {
@@ -74,9 +76,13 @@ public class JenaTDBArchive_query {
 			fileDynqueryOpt.setRequired(false);
 			options.addOption(fileDynqueryOpt);
 
-			Option queryCatOpt = new Option("c", "category", true, "Query category: mat | diff | ver | change ");
+			Option queryCatOpt = new Option("c", "category", true, "Query category: mat | diff | ver | change | join ");
 			queryCatOpt.setRequired(false);
 			options.addOption(queryCatOpt);
+			
+			Option queryJoinCatOpt = new Option("x", "joincategory", true, "Join category: ss | oo | so ");
+			queryJoinCatOpt.setRequired(false);
+			options.addOption(queryJoinCatOpt);
 
 			Option versionOpt = new Option("v", "version", true, "Version, used in the Query (e.g. in materialize)");
 			versionOpt.setRequired(false);
@@ -93,9 +99,13 @@ public class JenaTDBArchive_query {
 			SplitVersionOpt.setRequired(false);
 			options.addOption(SplitVersionOpt);
 
-			Option rolOpt = new Option("r", "rol", true, "Rol of the Resource in the query: subject (s) | predicate (p) | object (o)");
+			Option rolOpt = new Option("r", "rol", true, "Rol of the TP in the query: subject (s) | predicate (p) | object (o) || so | sp || spo || po || so");
 			rolOpt.setRequired(false);
 			options.addOption(rolOpt);
+			
+			Option rolSecondTPOpt = new Option("y", "rolend", true, "Rol of the second TP in the query: subject (s) | predicate (p) | object (o) || so | sp || spo || po || so");
+			rolSecondTPOpt.setRequired(false);
+			options.addOption(rolSecondTPOpt);
 
 			Option timeOpt = new Option("t", "timeOutput", true, "file to write the time output");
 			timeOpt.setRequired(false);
@@ -126,6 +136,12 @@ public class JenaTDBArchive_query {
 			}
 			if (cmdLine.hasOption("c")) {
 				queryCategory = cmdLine.getOptionValue("c");
+			}
+			if (cmdLine.hasOption("x")) {
+				joinCategory = cmdLine.getOptionValue("x");
+			}
+			if (cmdLine.hasOption("y")) {
+				rolSecondTP = cmdLine.getOptionValue("y");
 			}
 			if (cmdLine.hasOption("v")) {
 				versionQuery = Integer.parseInt(cmdLine.getOptionValue("v"));
@@ -306,9 +322,29 @@ public class JenaTDBArchive_query {
 			} else if (queryCategory.equalsIgnoreCase("change")) {
 				System.out.println("Change between versions");
 
-				// TODO TODO
+				ArrayList<ArrayList<Integer>> solution = jenaArchive.bulkAllChangeQuerying(queryFileDynamic, rol);
+				if (!silent) {
+					os.println("\n**** SOLUTIONS:");
+					
+					printSolutionSeveralQueriesInt(os, solution);
+					
+				}
 
+			} else if (queryCategory.equalsIgnoreCase("join")) {
+			System.out.println("Join between versions");
+
+			ArrayList<Map<Integer, ArrayList<String>>>solution = jenaArchive.bulkAllJoinQuerying(queryFileDynamic, rol,rolSecondTP,joinCategory);
+			if (!silent) {
+				os.println("\n**** SOLUTIONS:");
+				
+				if (!splitResultsByVersion)
+					printSolutionSeveralQueriesAllVersions(os, solution);
+				else
+					printSolutionSeveralQueriesAllVersions(outputResults,solution);
+				
 			}
+
+		}
 
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -381,6 +417,16 @@ public class JenaTDBArchive_query {
 		for (ArrayList<String> solFile : sols) {
 			os.println("\nsolution query " + i + ":");
 			for (String sol : solFile) {
+				os.println(sol);
+			}
+			i++;
+		}
+	}
+	private static void printSolutionSeveralQueriesInt(PrintStream os, ArrayList<ArrayList<Integer>> sols) {
+		int i = 1;
+		for (ArrayList<Integer> solFile : sols) {
+			os.println("\nsolution query " + i + ":");
+			for (Integer sol : solFile) {
 				os.println(sol);
 			}
 			i++;

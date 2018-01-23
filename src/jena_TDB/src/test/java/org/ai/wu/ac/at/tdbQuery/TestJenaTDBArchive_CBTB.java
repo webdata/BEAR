@@ -338,6 +338,25 @@ public class TestJenaTDBArchive_CBTB {
 		assertTrue(expectedDel.containsAll(solutionDel) && solutionDel.containsAll(expectedDel));
 
 	}
+	
+	@Test
+	public void testbulkAllchangeQueryingwithAddsAndDeletes() throws InterruptedException, ExecutionException, IOException {
+		URL queryurl = this.getClass().getResource(FileSystems.getDefault().getSeparator() + "testCB/testQueryDynamic.txt");
+
+		ArrayList<ArrayList<Integer>> solution = jenaArchive.bulkAllChangeQuerying(queryurl.getFile(), "subject");
+
+		ArrayList<Integer>solutionFirstLine = solution.get(0);
+		for (int i:solutionFirstLine){
+			System.out.println("solution: "+i);
+		}
+		/*
+		 * diff 0 and 1
+		 */
+		ArrayList<Integer> expected = new ArrayList<Integer>();
+		expected.add(0);
+		expected.add(2);
+		assertTrue(expected.containsAll(solutionFirstLine) && solutionFirstLine.containsAll(expected));
+	}
 	@Test
 	public void testBulkAllVerQuerying_PO() throws InterruptedException, ExecutionException, FileNotFoundException, IOException {
 
